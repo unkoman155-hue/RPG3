@@ -1,19 +1,16 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
->
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+  >
 
-<title>⚔️ 勇者の懸賞金RPG ONLINE</title>
+  <title>⚔️ 勇者の懸賞金RPG ONLINE</title>
 
-<link rel="stylesheet" href="style.css">
-
-<!-- Socket.IO -->
-<script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -26,7 +23,7 @@
 
   <header>
     <h1>⚔️ 勇者の懸賞金RPG ONLINE</h1>
-    <div id="status">オフライン</div>
+    <div id="status"></div>
   </header>
 
 
@@ -79,102 +76,52 @@
 
   </nav>
 
-</div>
+
+  <!-- =========================
+       オンライン画面
+  ========================== -->
+
+  <div id="onlineOverlay" class="online-overlay">
+
+    <div class="online-box">
+
+      <h2>🌐 オンライン</h2>
+
+      <p id="onlineMessage">
+        サーバーに接続しています……
+      </p>
+
+      <p id="onlineError"></p>
 
 
-<!-- =========================
-     オンライン接続画面
-========================== -->
+      <!-- プレイヤー名 -->
 
-<div id="onlineOverlay" class="online-overlay">
-
-  <div class="online-box">
-
-    <h2>🌐 オンライン</h2>
-
-    <p id="onlineMessage">
-      接続しています……
-    </p>
-
-    <!-- 名前 -->
-    <input
-      id="onlineName"
-      type="text"
-      maxlength="20"
-      placeholder="プレイヤー名"
-    >
-
-    <br><br>
-
-    <!-- ルーム作成 -->
-    <button onclick="createOnlineRoom()">
-      🏠 ルームを作る
-    </button>
-
-    <br>
-
-    <!-- ルーム参加 -->
-    <input
-      id="roomCodeInput"
-      type="text"
-      maxlength="6"
-      placeholder="ルームコード"
-      autocomplete="off"
-    >
-
-    <button onclick="joinOnlineRoom()">
-      🚪 ルームに参加
-    </button>
-
-    <p id="onlineError"></p>
-
-  </div>
-
-</div>
+      <input
+        id="onlineName"
+        type="text"
+        maxlength="20"
+        placeholder="プレイヤー名"
+        autocomplete="off"
+      >
 
 
-<!-- =========================
-     オンラインプレイヤー表示
-========================== -->
+      <!-- ルーム作成 -->
 
-<div id="onlinePlayers" class="online-players">
-
-  <div class="online-players-title">
-    👥 オンラインプレイヤー
-  </div>
-
-  <div id="playerList">
-    まだプレイヤーはいません。
-  </div>
-
-</div>
+      <button onclick="createOnlineRoom()">
+        🆕 ルームを作る
+      </button>
 
 
-<!-- =========================
-     ルーム情報
-========================== -->
+      <!-- ルーム参加 -->
 
-<div id="roomInfo" class="room-info">
+      <div class="room-join">
 
-  <span>
-    🔑 ルーム：
-  </span>
+        <input
+          id="roomCodeInput"
+          type="text"
+          maxlength="6"
+          placeholder="ルームコード"
+          autocomplete="off"
+        >
 
-  <strong id="roomCodeDisplay">
-    ---
-  </strong>
-
-</div>
-
-
-<!-- =========================
-     他プレイヤー情報
-========================== -->
-
-<div id="remotePlayers"></div>
-
-
-<script src="game.js"></script>
-
-</body>
-</html>
+        <button
