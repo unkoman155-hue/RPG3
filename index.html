@@ -1,46 +1,96 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
   <title>⚔️ 勇者の懸賞金RPG</title>
+
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<div id="app">
+  <div id="app">
 
-  <header>
-    <h1>⚔️ 勇者の懸賞金RPG</h1>
-    <div id="status"></div>
-  </header>
+    <!-- 上部ステータス -->
+    <header id="header">
 
-  <main>
+      <h1>⚔️ 勇者の懸賞金RPG</h1>
 
-    <section id="screen" class="panel"></section>
+      <div id="status">
+        ゲームを開始してください
+      </div>
 
-    <!-- 通常ログ -->
-    <section id="log" class="panel log"></section>
+    </header>
 
-  </main>
 
-  <nav id="mainNav" class="nav">
+    <!-- メインゲーム画面 -->
+    <main>
 
-    <button onclick="showHome()">🏠 ホーム</button>
-    <button onclick="showBattle()">⚔️ 戦う</button>
-    <button onclick="showBoss()">👑 ボス</button>
-    <button onclick="showTown()">🏘️ 町</button>
-    <button onclick="showCity()">🏙️ 都市</button>
-    <button onclick="showGacha()">🎰 ガチャ</button>
-    <button onclick="showBag()">🎒 バッグ</button>
-    <button onclick="showSettings()">⚙️ 設定</button>
+      <section id="screen" class="panel">
 
-  </nav>
+        <!-- game.jsで内容を表示 -->
 
-</div>
+      </section>
 
-<script src="game.js"></script>
+
+      <!-- メッセージログ -->
+      <section id="log" class="panel log">
+
+        <!-- game.jsでメッセージを表示 -->
+
+      </section>
+
+    </main>
+
+
+    <!-- 下部メニュー -->
+    <nav id="mainNav" class="nav">
+
+      <button onclick="showHome()">
+        🏠 ホーム
+      </button>
+
+      <button onclick="showBattle()">
+        ⚔️ 戦う
+      </button>
+
+      <button onclick="showBoss()">
+        👑 ボス
+      </button>
+
+      <button onclick="showTown()">
+        🏘️ 町
+      </button>
+
+      <button onclick="showCity()">
+        🏙️ 都市
+      </button>
+
+      <button onclick="showGacha()">
+        🎰 ガチャ
+      </button>
+
+      <button onclick="showBag()">
+        🎒 バッグ
+      </button>
+
+      <button onclick="showSettings()">
+        ⚙️ 設定
+      </button>
+
+    </nav>
+
+  </div>
+
+
+  <!-- ゲーム本体 -->
+  <script src="game.js"></script>
 
 </body>
 </html>
