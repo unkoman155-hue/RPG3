@@ -1,148 +1,121 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
+  <meta charset="UTF-8">
 
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
 
-<title>⚔️ 勇者の懸賞金RPG</title>
+  <title>勇者の懸賞金RPG</title>
 
-<link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css">
+
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
 
-<div id="app">
+  <!-- ==============================
+       メインゲーム画面
+  =============================== -->
 
-  <header>
-    <h1>⚔️ 勇者の懸賞金RPG</h1>
-    <div id="status"></div>
-  </header>
+  <div id="gameScreen">
 
-  <main>
+    <canvas id="gameCanvas"></canvas>
 
-    <section id="screen" class="panel"></section>
+    <div id="topUI">
 
-    <section id="log" class="panel log"></section>
-
-  </main>
-
-  <nav id="mainNav" class="nav">
-
-    <button onclick="showHome()">
-      🏠 ホーム
-    </button>
-
-    <button onclick="showBattle()">
-      ⚔️ 戦う
-    </button>
-
-    <button onclick="showTown()">
-      🏘️ 町
-    </button>
-
-    <button onclick="showCity()">
-      🏙️ 都市
-    </button>
-
-    <button onclick="showGacha()">
-      🎰 ガチャ
-    </button>
-
-    <button onclick="showBag()">
-      🎒 バック
-    </button>
-
-    <button onclick="showSettings()">
-      ⚙️ 設定
-    </button>
-
-  </nav>
-
-
-  <!-- =========================
-       オンライン画面
-       最初は表示しない
-  ========================== -->
-
-  <div id="onlineOverlay" class="online-overlay hidden">
-
-    <div class="online-box">
-
-      <h2>🌐 オンライン</h2>
-
-      <p id="onlineMessage">
-        サーバーに接続しています……
-      </p>
-
-      <p id="onlineError"></p>
-
-      <input
-        id="onlineName"
-        type="text"
-        maxlength="20"
-        placeholder="プレイヤー名"
-        autocomplete="off"
-      >
-
-      <button onclick="createOnlineRoom()">
-        🆕 ルームを作る
-      </button>
-
-      <div class="room-join">
-
-        <input
-          id="roomCodeInput"
-          type="text"
-          maxlength="6"
-          placeholder="ルームコード"
-          autocomplete="off"
-        >
-
-        <button onclick="joinOnlineRoom()">
-          🔑 参加
-        </button>
-
-      </div>
-
-      <div id="roomInfo" class="room-info hidden">
+      <div id="playerStatus">
+        <div id="playerName">勇者</div>
 
         <div>
-          ルームコード
+          ❤️
+          <span id="hpText">30 / 30</span>
         </div>
 
-        <strong id="roomCodeDisplay">
-          ------
-        </strong>
+        <div>
+          ⚔️
+          <span id="attackText">10</span>
+        </div>
+
+        <div>
+          💰
+          <span id="moneyText">250</span>
+        </div>
+
+        <div>
+          🏆
+          <span id="bountyText">0</span>
+        </div>
 
       </div>
 
-      <div
-        id="onlinePlayers"
-        class="online-players hidden"
-      >
+    </div>
 
-        <div class="online-players-title">
-          👥 ルーム内プレイヤー
-        </div>
 
-        <div id="playerList"></div>
+    <!-- ==========================
+         下部メニュー
+    =========================== -->
 
-      </div>
+    <div id="bottomMenu">
 
-      <button
-        id="closeOnlineButton"
-        class="hidden"
-        onclick="closeOnlineOverlay()"
-      >
-        ▶️ ゲームに戻る
+      <button id="homeBtn">
+        🏠 ホーム
       </button>
 
-      <button onclick="closeOnlineOverlay()">
-        ✖ 閉じる
+      <button id="inventoryBtn">
+        🎒 インベントリ
+      </button>
+
+      <button id="onlineBtn">
+        🌐 オンライン
+      </button>
+
+    </div>
+
+
+    <!-- ==========================
+         タッチ操作
+    =========================== -->
+
+    <div id="stick">
+      <div id="stickKnob"></div>
+    </div>
+
+  </div>
+
+
+
+  <!-- ==============================
+       ホーム画面
+  =============================== -->
+
+  <div id="homeScreen" class="screen">
+
+    <div class="panel">
+
+      <h1>⚔️ 勇者の懸賞金RPG</h1>
+
+      <button id="startGameBtn">
+        ▶ ゲーム開始
+      </button>
+
+      <button id="onlineHomeBtn">
+        🌐 オンライン
+      </button>
+
+      <button id="jobBtn">
+        🧑‍🤝‍🧑 ジョブ変更
+      </button>
+
+      <button id="weaponBtn">
+        ⚔️ 装備変更
+      </button>
+
+      <button id="rankingBtn">
+        🏆 ランキング
       </button>
 
     </div>
@@ -150,16 +123,225 @@
   </div>
 
 
-  <!-- オンラインプレイヤー表示 -->
 
-  <div id="remotePlayers"></div>
+  <!-- ==============================
+       オンライン画面
+  =============================== -->
 
-</div>
+  <div id="onlineScreen" class="screen">
+
+    <div class="panel">
+
+      <h2>🌐 オンライン</h2>
+
+      <input
+        id="onlineName"
+        type="text"
+        maxlength="20"
+        placeholder="名前"
+      >
+
+      <input
+        id="roomCodeInput"
+        type="text"
+        maxlength="6"
+        placeholder="ルームコード"
+        inputmode="numeric"
+      >
+
+      <button id="createRoomBtn">
+        🔑 ルームを作成
+      </button>
+
+      <button id="joinRoomBtn">
+        🚪 ルームに参加
+      </button>
+
+      <button id="backHomeBtn">
+        ← 戻る
+      </button>
+
+      <div id="onlineStatus"></div>
+
+    </div>
+
+  </div>
 
 
-<script src="/socket.io/socket.io.js"></script>
 
-<script src="game.js"></script>
+  <!-- ==============================
+       ルーム画面
+  =============================== -->
+
+  <div id="roomScreen" class="screen">
+
+    <div class="panel">
+
+      <h2>🏠 ルーム</h2>
+
+      <div>
+        ルームコード：
+        <strong id="roomCodeText">---</strong>
+      </div>
+
+      <div id="roomPlayers"></div>
+
+
+      <!-- ========================
+           公開チャット
+      ========================= -->
+
+      <div id="publicChat">
+
+        <h3>💬 公開チャット</h3>
+
+        <div id="chatMessages"></div>
+
+        <div id="chatInputArea">
+
+          <input
+            id="chatInput"
+            type="text"
+            maxlength="200"
+            placeholder="メッセージを入力"
+          >
+
+          <button id="chatSendBtn">
+            送信
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <button id="enterOnlineGameBtn">
+        ▶ ゲームに入る
+      </button>
+
+      <button id="leaveRoomBtn">
+        🚪 ルームから退出
+      </button>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- ==============================
+       インベントリ
+  =============================== -->
+
+  <div id="inventoryScreen" class="screen">
+
+    <div class="panel">
+
+      <h2>🎒 インベントリ</h2>
+
+      <div id="inventoryList"></div>
+
+      <button id="closeInventoryBtn">
+        閉じる
+      </button>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- ==============================
+       ジョブ選択
+  =============================== -->
+
+  <div id="jobScreen" class="screen">
+
+    <div class="panel">
+
+      <h2>🧑‍🤝‍🧑 ジョブ変更</h2>
+
+      <button data-job="勇者">
+        ⚔️ 勇者
+      </button>
+
+      <button data-job="ヒーラー">
+        ❤️ ヒーラー
+      </button>
+
+      <button data-job="剣士">
+        🗡️ 剣士
+      </button>
+
+      <button id="closeJobBtn">
+        閉じる
+      </button>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- ==============================
+       装備変更
+  =============================== -->
+
+  <div id="weaponScreen" class="screen">
+
+    <div class="panel">
+
+      <h2>⚔️ 装備変更</h2>
+
+      <button data-weapon="タガー">
+        🗡️ タガー
+      </button>
+
+      <button data-weapon="剣">
+        ⚔️ 剣
+      </button>
+
+      <button data-weapon="強化剣">
+        ⚔️ 強化剣
+      </button>
+
+      <button id="closeWeaponBtn">
+        閉じる
+      </button>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- ==============================
+       ランキング
+  =============================== -->
+
+  <div id="rankingScreen" class="screen">
+
+    <div class="panel">
+
+      <h2>🏆 ランキング</h2>
+
+      <div id="rankingList"></div>
+
+      <button id="closeRankingBtn">
+        閉じる
+      </button>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- ==============================
+       スクリプト
+  =============================== -->
+
+  <script src="game.js"></script>
 
 </body>
 </html>
