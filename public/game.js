@@ -1,4 +1,4 @@
-const SAVE_KEY = "yuusha_bounty_rpg_online_v4";
+const SAVE_KEY = "yuusha_bounty_rpg_online_v5";
 
 /* =========================================
    Socket.IO
@@ -45,6 +45,9 @@ let player = {
 
   townUnlocked: false,
   townTrust: 0,
+
+  /* 町イベントの最終使用日 */
+  lastTownEventDate: "",
 
   cityUnlocked: false,
   cityTrust: 0,
@@ -342,6 +345,54 @@ const ENEMIES = [
     xp: 500,
     money: 600,
     area: "魔王城"
+  },
+
+  /* =====================================
+     追加モンスター
+  ===================================== */
+
+  {
+    name: "ゴブリンキング",
+    minLevel: 8,
+    maxLevel: 20,
+    hp: 230,
+    attack: 24,
+    xp: 200,
+    money: 220,
+    area: "山道"
+  },
+
+  {
+    name: "ミノタウロス",
+    minLevel: 10,
+    maxLevel: 25,
+    hp: 280,
+    attack: 30,
+    xp: 260,
+    money: 300,
+    area: "遺跡"
+  },
+
+  {
+    name: "デーモン",
+    minLevel: 15,
+    maxLevel: 35,
+    hp: 350,
+    attack: 38,
+    xp: 400,
+    money: 500,
+    area: "魔境"
+  },
+
+  {
+    name: "古代竜",
+    minLevel: 20,
+    maxLevel: 45,
+    hp: 450,
+    attack: 48,
+    xp: 650,
+    money: 800,
+    area: "魔王城"
   }
 
 ];
@@ -355,7 +406,7 @@ const BOSS = {
 
   name: "懸賞金王",
 
-  /* ボスは500HPのまま */
+  /* 絶対に500HP */
   hp: 500,
 
   attack: 45,
@@ -558,6 +609,15 @@ function loadGame() {
     }
 
 
+    if (
+      typeof player.lastTownEventDate !== "string"
+    ) {
+
+      player.lastTownEventDate = "";
+
+    }
+
+
     return true;
 
   } catch (e) {
@@ -608,6 +668,8 @@ function resetPlayer() {
     townUnlocked: false,
     townTrust: 0,
 
+    lastTownEventDate: "",
+
     cityUnlocked: false,
     cityTrust: 0,
 
@@ -627,6 +689,37 @@ function resetPlayer() {
 
 }
 
+
+/* =========================================
+   セーブ用 日付
+========================================= */
+
+function getTodayKey() {
+
+  const now =
+    new Date();
+
+  const year =
+    now.getFullYear();
+
+  const month =
+    String(
+      now.getMonth() + 1
+    ).padStart(2, "0");
+
+  const day =
+    String(
+      now.getDate()
+    ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+
+}
+
+
+/* =========================================
+   セーブ削除
+========================================= */
 
 function deleteSave() {
 
@@ -970,10 +1063,8 @@ function showOnlineMenu() {
   const roomInfo =
     $("roomInfo");
 
-
   const players =
     $("onlinePlayers");
-
 
   const close =
     $("closeOnlineButton");
@@ -1631,6 +1722,8 @@ function createPlayer(job) {
   player.townUnlocked = false;
 
   player.townTrust = 0;
+
+  player.lastTownEventDate = "";
 
 
   player.cityUnlocked = false;
@@ -2975,6 +3068,14 @@ function showTown() {
   }
 
 
+  const today =
+    getTodayKey();
+
+
+  const eventUsedToday =
+    player.lastTownEventDate === today;
+
+
   showScreen(`
 
     <div class="town-screen">
@@ -3004,11 +3105,30 @@ function showTown() {
       </button>
 
 
-      <button onclick="townEvent()">
+      ${
+        eventUsedToday
 
-        🎁 町イベント
+          ? `
 
-      </button>
+            <button disabled>
+
+              🎁 町イベント（今日は使用済み）
+
+            </button>
+
+          `
+
+          : `
+
+            <button onclick="townEvent()">
+
+              🎁 町イベント
+
+            </button>
+
+          `
+
+      }
 
 
       <button onclick="showHome()">
@@ -3024,6 +3144,10 @@ function showTown() {
 }
 
 
+/* =========================================
+   町の回復
+========================================= */
+
 function townHeal() {
 
   if (player.money < 30) {
@@ -3031,6 +3155,21 @@ function townHeal() {
     addBattleMessage(
       "💰 お金が足りません。"
     );
+
+    showTown();
+
+    return;
+
+  }
+
+
+  if (player.hp >= player.maxHp) {
+
+    addBattleMessage(
+      "❤️ HPはすでに満タンです！"
+    );
+
+    showTown();
 
     return;
 
@@ -3044,7 +3183,7 @@ function townHeal() {
 
 
   addBattleMessage(
-    "❤️ HPが全回復しました！"
+    "❤️ 30Gを使ってHPが全回復しました！"
   );
 
 
@@ -3054,6 +3193,10 @@ function townHeal() {
 
 }
 
+
+/* =========================================
+   町ショップ
+========================================= */
 
 function townShop() {
 
@@ -3165,13 +3308,40 @@ function buyDagger() {
 }
 
 
+/* =========================================
+   町イベント 1日1回
+========================================= */
+
 function townEvent() {
+
+  const today =
+    getTodayKey();
+
+
+  if (
+    player.lastTownEventDate === today
+  ) {
+
+    addBattleMessage(
+      "🎁 今日はもう町イベントを受けています。明日また来てね！"
+    );
+
+    showTown();
+
+    return;
+
+  }
+
+
+  player.lastTownEventDate =
+    today;
+
 
   const r =
     Math.random();
 
 
-  if (r < 0.33) {
+  if (r < 0.25) {
 
     player.inventory["薬草"] =
       (player.inventory["薬草"] || 0) +
@@ -3184,7 +3354,7 @@ function townEvent() {
 
   }
 
-  else if (r < 0.66) {
+  else if (r < 0.50) {
 
     player.inventory["タガー"] =
       (player.inventory["タガー"] || 0) +
@@ -3197,13 +3367,25 @@ function townEvent() {
 
   }
 
-  else {
+  else if (r < 0.75) {
 
     player.money += 100;
 
 
     addBattleMessage(
       "💰 100Gもらった！"
+    );
+
+  }
+
+  else {
+
+    player.hp =
+      player.maxHp;
+
+
+    addBattleMessage(
+      "❤️ 町の人に治療してもらった！HP全回復！"
     );
 
   }
@@ -3318,6 +3500,19 @@ function cityHeal() {
     addBattleMessage(
       "💰 お金が足りません。"
     );
+
+    return;
+
+  }
+
+
+  if (player.hp >= player.maxHp) {
+
+    addBattleMessage(
+      "❤️ HPはすでに満タンです！"
+    );
+
+    showCity();
 
     return;
 
