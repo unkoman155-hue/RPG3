@@ -1,8 +1,3 @@
-/* =====================================================
-   ⚔️ 勇者の懸賞金RPG
-   完成版 style.css
-===================================================== */
-
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
@@ -14,59 +9,51 @@ body {
     padding: 0;
     width: 100%;
     min-height: 100%;
+
+    background: #111;
+    color: #fff;
+
     font-family:
         Arial,
         "Noto Sans JP",
         sans-serif;
-    background: #111;
-    color: #fff;
 }
 
 body {
     overflow-x: hidden;
 }
 
-/* =====================================================
-   アプリ本体
-===================================================== */
-
 #app {
-    position: relative;
     width: 100%;
     min-height: 100vh;
-    padding-bottom: 100px;
+    padding-bottom: 90px;
 }
 
-/* =====================================================
+/* =========================
    ヘッダー
-===================================================== */
+========================= */
 
 header {
-    position: relative;
-    z-index: 100;
-
     width: 100%;
-    padding: 14px 10px;
+    padding: 12px;
 
-    background: #181818;
-    border-bottom: 2px solid #333;
+    background: #1d1d1d;
+
+    border-bottom: 2px solid #444;
 
     text-align: center;
 }
 
 header h1 {
-    margin: 0 0 10px 0;
+    margin: 0 0 12px;
     font-size: 24px;
 }
 
-/* =====================================================
+/* =========================
    ステータス
-===================================================== */
+========================= */
 
 #status {
-    position: relative;
-    z-index: 110;
-
     width: 100%;
 }
 
@@ -76,78 +63,94 @@ header h1 {
 }
 
 .status-grid {
-    display: grid;
-
-    grid-template-columns:
-        repeat(auto-fit, minmax(120px, 1fr));
-
-    gap: 6px;
-
     width: 100%;
     max-width: 900px;
 
-    margin: 0 auto;
+    margin: auto;
+
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 6px;
 }
 
-.status-grid > div {
-    padding: 7px 5px;
+.status-grid div {
+    padding: 7px 4px;
 
-    background: #252525;
+    background: #292929;
+
     border: 1px solid #444;
     border-radius: 8px;
 
     font-size: 13px;
 }
 
-/* =====================================================
+/* =========================
    メイン
-===================================================== */
+========================= */
 
 main {
-    position: relative;
-    z-index: 10;
-
     width: 100%;
-    max-width: 1000px;
+    max-width: 900px;
 
-    margin: 0 auto;
-    padding: 12px;
+    margin: auto;
+
+    padding: 10px;
 }
 
-/* =====================================================
-   共通パネル
-===================================================== */
-
 .panel {
-    position: relative;
-
     width: 100%;
 
     background: #1b1b1b;
+
     border: 1px solid #444;
     border-radius: 12px;
 }
 
-/* =====================================================
+/* =========================
    メイン画面
-===================================================== */
+========================= */
 
 #screen {
-    position: relative;
-    z-index: 50;
-
-    min-height: 360px;
+    min-height: 400px;
 
     padding: 20px;
 
-    overflow: visible;
-
-    pointer-events: auto;
+    position: relative;
+    z-index: 10;
 }
 
-/* =====================================================
-   画面内共通
-===================================================== */
+/* =========================
+   ログ
+========================= */
+
+#log {
+    min-height: 100px;
+    max-height: 200px;
+
+    margin-top: 10px;
+
+    padding: 12px;
+
+    overflow-y: auto;
+
+    background: #0d0d0d;
+
+    position: relative;
+    z-index: 10;
+}
+
+#log div {
+    padding: 4px 0;
+
+    border-bottom: 1px solid #222;
+
+    font-size: 14px;
+}
+
+/* =========================
+   共通画面
+========================= */
 
 .start-screen,
 .create-screen,
@@ -169,197 +172,151 @@ main {
 .encyclopedia-screen,
 .boss-screen,
 .locked-screen {
-    position: relative;
-    z-index: 60;
-
     width: 100%;
-    max-width: 700px;
+    max-width: 650px;
 
-    margin: 0 auto;
+    margin: auto;
 
     text-align: center;
 
-    pointer-events: auto;
+    position: relative;
+    z-index: 20;
 }
 
-/* =====================================================
+/* =========================
    見出し
-===================================================== */
+========================= */
 
 #screen h2 {
     margin-top: 5px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
 
-    font-size: 26px;
+    font-size: 28px;
 }
 
 #screen h3 {
-    margin: 12px 0;
+    margin: 15px 0;
 }
 
-/* =====================================================
-   文章
-===================================================== */
-
-#screen p {
-    line-height: 1.6;
-}
-
-/* =====================================================
+/* =========================
    ボタン
-===================================================== */
+========================= */
 
 button {
-    position: relative;
-    z-index: 200;
-
     display: block;
 
-    width: min(100%, 500px);
+    width: 100%;
+    max-width: 500px;
 
     min-height: 52px;
 
     margin: 10px auto;
 
-    padding: 12px 18px;
+    padding: 12px;
+
+    background: #292929;
+
+    color: #fff;
 
     border: 2px solid #555;
     border-radius: 10px;
-
-    background: #292929;
-    color: #fff;
 
     font-size: 17px;
     font-weight: bold;
 
     cursor: pointer;
 
+    position: relative;
+    z-index: 100;
+
     pointer-events: auto;
 
     touch-action: manipulation;
-
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-button:hover {
-    background: #3a3a3a;
 }
 
 button:active {
     transform: scale(0.97);
+
     background: #444;
 }
 
-/* =====================================================
-   ゲーム開始画面
-===================================================== */
+/* =========================
+   ゲーム開始
+========================= */
 
 .start-screen {
     padding: 30px 10px;
 }
 
 .start-screen h2 {
-    font-size: 32px;
-    margin-bottom: 25px;
+    font-size: 32px !important;
 }
 
 .start-screen p {
     margin-bottom: 25px;
+
     color: #ccc;
 }
 
 .start-screen button {
     min-height: 60px;
+
     font-size: 20px;
 }
 
-/* =====================================================
-   プレイヤー作成
-===================================================== */
+/* =========================
+   名前入力
+========================= */
 
-.create-screen input {
+input {
     display: block;
 
-    width: min(100%, 500px);
+    width: 100%;
+    max-width: 500px;
 
     min-height: 52px;
 
     margin: 10px auto 20px;
 
-    padding: 12px;
+    padding: 10px;
+
+    background: #0d0d0d;
+
+    color: #fff;
 
     border: 2px solid #555;
     border-radius: 10px;
 
-    background: #101010;
-    color: #fff;
-
     font-size: 18px;
+}
 
+input:focus {
     outline: none;
+    border-color: #aaa;
 }
 
-.create-screen input:focus {
-    border-color: #888;
-}
-
-/* =====================================================
-   ログ
-===================================================== */
-
-#log {
-    position: relative;
-    z-index: 20;
-
-    min-height: 100px;
-    max-height: 220px;
-
-    margin-top: 12px;
-
-    padding: 12px;
-
-    overflow-y: auto;
-
-    background: #101010;
-}
-
-#log div {
-    padding: 4px 2px;
-
-    border-bottom: 1px solid #222;
-
-    line-height: 1.5;
-
-    font-size: 14px;
-}
-
-/* =====================================================
-   戦闘画面
-===================================================== */
-
-.battle-screen {
-    padding-bottom: 10px;
-}
+/* =========================
+   戦闘
+========================= */
 
 .enemy-box {
     padding: 15px;
 
     margin-bottom: 15px;
 
-    background: #242424;
+    background: #252525;
 
     border: 2px solid #555;
     border-radius: 12px;
 }
 
 .enemy-box h3 {
-    font-size: 23px;
+    font-size: 24px;
 }
 
-/* =====================================================
+/* =========================
    HPバー
-===================================================== */
+========================= */
 
 .hp-bar {
     width: 100%;
@@ -376,25 +333,18 @@ button:active {
 .hp-fill {
     height: 100%;
 
-    width: 100%;
-
-    background: #ddd;
-
-    transition: width 0.2s ease;
+    transition: width 0.2s;
 }
 
 .enemy-hp {
     background: #d33;
 }
 
-/* =====================================================
+/* =========================
    戦闘ログ
-===================================================== */
+========================= */
 
 .battle-log {
-    position: relative;
-    z-index: 70;
-
     width: 100%;
 
     min-height: 120px;
@@ -406,60 +356,31 @@ button:active {
 
     overflow-y: auto;
 
-    text-align: left;
-
-    background: #0c0c0c;
+    background: #090909;
 
     border: 2px solid #444;
     border-radius: 10px;
+
+    text-align: left;
 }
 
 .battle-log div {
     padding: 5px 0;
 
     border-bottom: 1px solid #222;
-
-    line-height: 1.5;
 }
 
 .player-battle-status {
-    padding: 12px;
+    padding: 10px;
 
-    margin-bottom: 10px;
-
-    background: #222;
+    background: #242424;
 
     border-radius: 10px;
 }
 
-/* =====================================================
-   戦闘ボタン
-===================================================== */
-
-.battle-buttons {
-    position: relative;
-    z-index: 100;
-}
-
-.battle-buttons button {
-    min-height: 55px;
-}
-
-/* =====================================================
-   スキル
-===================================================== */
-
-.skill-screen button {
-    min-height: 65px;
-}
-
-.skill-screen small {
-    color: #ccc;
-}
-
-/* =====================================================
+/* =========================
    バッグ
-===================================================== */
+========================= */
 
 .inventory-item {
     display: flex;
@@ -488,21 +409,20 @@ button:active {
 
     margin: 0;
 
-    padding: 8px 12px;
-
     font-size: 14px;
 }
 
-/* =====================================================
-   情報カード
-===================================================== */
+/* =========================
+   情報
+========================= */
 
 .info-card,
 .enemy-card {
     margin: 10px 0;
+
     padding: 14px;
 
-    background: #242424;
+    background: #252525;
 
     border: 1px solid #444;
     border-radius: 10px;
@@ -510,33 +430,9 @@ button:active {
     text-align: left;
 }
 
-/* =====================================================
-   ロック画面
-===================================================== */
-
-.locked-screen {
-    padding: 30px 10px;
-}
-
-.locked-screen p {
-    color: #bbb;
-}
-
-/* =====================================================
-   ボス
-===================================================== */
-
-.boss-screen {
-    padding: 20px 10px;
-}
-
-.boss-screen h2 {
-    font-size: 30px;
-}
-
-/* =====================================================
-   下部ナビ
-===================================================== */
+/* =========================
+   下部メニュー
+========================= */
 
 #mainNav {
     position: fixed;
@@ -546,23 +442,19 @@ button:active {
 
     z-index: 1000;
 
+    width: 100%;
+
     display: grid;
 
-    grid-template-columns:
-        repeat(4, 1fr);
+    grid-template-columns: repeat(4, 1fr);
 
     gap: 5px;
 
-    width: 100%;
+    padding: 6px;
 
-    padding: 7px;
-
-    background: rgba(15, 15, 15, 0.97);
+    background: #151515;
 
     border-top: 2px solid #444;
-
-    box-shadow:
-        0 -4px 15px rgba(0, 0, 0, 0.5);
 }
 
 #mainNav button {
@@ -572,21 +464,19 @@ button:active {
 
     margin: 0;
 
-    padding: 7px 4px;
+    padding: 5px 3px;
 
-    border-radius: 8px;
-
-    font-size: 13px;
+    font-size: 12px;
 }
 
-/* =====================================================
-   タブレット・スマホ
-===================================================== */
+/* =========================
+   スマホ・タブレット
+========================= */
 
 @media (max-width: 700px) {
 
-    header {
-        padding: 10px 7px;
+    #app {
+        padding-bottom: 100px;
     }
 
     header h1 {
@@ -594,20 +484,19 @@ button:active {
     }
 
     main {
-        padding: 8px;
+        padding: 7px;
     }
 
     #screen {
-        min-height: 340px;
+        min-height: 380px;
         padding: 15px;
     }
 
     .status-grid {
-        grid-template-columns:
-            repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    .status-grid > div {
+    .status-grid div {
         font-size: 12px;
     }
 
@@ -616,48 +505,33 @@ button:active {
         font-size: 16px;
     }
 
-    .start-screen h2 {
-        font-size: 27px;
-    }
-
-    #mainNav {
-        grid-template-columns:
-            repeat(4, 1fr);
-    }
-
     #mainNav button {
         min-height: 48px;
-        font-size: 12px;
+        font-size: 11px;
     }
 }
 
-/* =====================================================
+/* =========================
    小さいスマホ
-===================================================== */
+========================= */
 
 @media (max-width: 420px) {
 
-    #app {
-        padding-bottom: 105px;
+    header h1 {
+        font-size: 18px;
     }
 
     #screen {
+        min-height: 360px;
         padding: 12px;
     }
 
-    .status-grid {
-        grid-template-columns:
-            repeat(2, 1fr);
-    }
-
-    .status-grid > div {
-        padding: 6px 3px;
+    .status-grid div {
         font-size: 11px;
     }
 
     #mainNav {
         gap: 3px;
-        padding: 5px;
     }
 
     #mainNav button {
@@ -665,38 +539,3 @@ button:active {
         font-size: 10px;
     }
 }
-
-/* =====================================================
-   タッチ操作対策
-===================================================== */
-
-button,
-input,
-select,
-textarea {
-    touch-action: manipulation;
-}
-
-/* =====================================================
-   UIが後ろに隠れるのを防止
-===================================================== */
-
-#screen,
-#screen *,
-button {
-    visibility: visible;
-    opacity: 1;
-}
-
-/* =====================================================
-   変な重なりを防止
-===================================================== */
-
-#screen::before,
-#screen::after {
-    pointer-events: none;
-}
-
-/* =====================================================
-   完了
-===================================================== */
