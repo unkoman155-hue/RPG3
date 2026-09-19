@@ -1,22 +1,20 @@
-const $ = (id) => document.getElementById(id);
+"use strict";
 
-const SAVE_KEY = "yuusha_bounty_rpg_complete_v1";
+/* =========================================
+   勇者の懸賞金RPG
+   完全版・オフライン
+========================================= */
 
-
-// ========================================
-// プレイヤーデータ
-// ========================================
+const SAVE_KEY = "yuusha_bounty_rpg_v4";
 
 const player = {
   name: "",
   job: "",
-
   level: 0,
   xp: 0,
 
   maxHp: 30,
   hp: 30,
-
   attack: 10,
 
   money: 250,
@@ -25,7 +23,6 @@ const player = {
   weapon: "タガー",
 
   skills: [],
-
   inventory: ["タガー"],
 
   defeats: 0,
@@ -40,39 +37,36 @@ const player = {
 };
 
 
-// ========================================
-// 職業
-// ========================================
+/* =========================================
+   職業
+========================================= */
 
-const jobData = {
-
+const jobs = {
   "勇者": {
     hp: 30,
     attack: 10,
-    skills: ["斬撃"]
+    skill: "斬撃"
   },
 
   "ヒーラー": {
     hp: 35,
     attack: 7,
-    skills: ["ヒール"]
+    skill: "ヒール"
   },
 
   "剣士": {
     hp: 30,
     attack: 14,
-    skills: ["強斬り"]
+    skill: "強斬り"
   }
-
 };
 
 
-// ========================================
-// スキル
-// ========================================
+/* =========================================
+   スキル
+========================================= */
 
-const skillData = {
-
+const skills = {
   "斬撃": {
     power: 35,
     heal: 0
@@ -102,16 +96,14 @@ const skillData = {
     power: 120,
     heal: 0
   }
-
 };
 
 
-// ========================================
-// 敵
-// ========================================
+/* =========================================
+   モンスター
+========================================= */
 
-const enemies = [
-
+const monsters = [
   {
     name: "怪物猫",
     hp: 20,
@@ -156,92 +148,70 @@ const enemies = [
     money: 80,
     area: "都市周辺"
   }
-
 ];
 
 
-const bossEnemy = {
-
+const boss = {
   name: "懸賞金王",
-
   hp: 500,
-
   attack: 45,
-
   xp: 1000,
-
   money: 1000
-
 };
 
 
-// ========================================
-// 戦闘用
-// ========================================
+/* =========================================
+   戦闘データ
+========================================= */
 
 let currentEnemy = null;
-
 let defending = false;
-
 let battleMessages = [];
 
 
-// ========================================
-// ステータス表示
-// ========================================
+/* =========================================
+   共通
+========================================= */
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+
+function clearScreen() {
+  $("screen").innerHTML = "";
+}
+
 
 function updateStatus() {
 
-  if (!$("status")) return;
-
   if (!player.name) {
-
     $("status").textContent =
       "ゲームを開始してください";
-
     return;
   }
 
   $("status").innerHTML =
-
-    `👤 ${player.name}` +
-    `　⚔️ ${player.job}` +
-    `　⭐ Lv.${player.level}` +
-
-    `<br>` +
-
-    `❤️ ${player.hp}/${player.maxHp}` +
-    `　💰 ${player.money}円` +
-    `　🏆 懸賞金 ${player.bounty}円`;
-
+    "👤 " + player.name +
+    "　⚔️ " + player.job +
+    "　⭐ Lv." + player.level +
+    "<br>" +
+    "❤️ " + player.hp + "/" + player.maxHp +
+    "　💰 " + player.money + "円" +
+    "　🏆 懸賞金 " + player.bounty + "円";
 }
 
 
-// ========================================
-// 画面
-// ========================================
-
-function clearScreen() {
-
-  $("screen").innerHTML = "";
-
-}
-
-
-// ========================================
-// ログ
-// ========================================
+/* =========================================
+   ログ
+========================================= */
 
 function clearLog() {
-
   $("log").innerHTML = "";
-
 }
 
 
 function writeLog(text) {
-
-  if (!$("log")) return;
 
   const div = document.createElement("div");
 
@@ -253,48 +223,46 @@ function writeLog(text) {
     $("log").scrollHeight;
 
   updateBattleLog();
-
 }
 
 
-function addBattleMessage(text) {
+function battleLog(text) {
 
   battleMessages.push(text);
 
   writeLog(text);
-
 }
 
 
 function updateBattleLog() {
 
-  const battleLog =
-    $("battleLog");
+  const box = $("battleLog");
 
-  if (!battleLog) return;
+  if (!box) {
+    return;
+  }
 
-  battleLog.innerHTML = "";
+  box.innerHTML = "";
 
-  battleMessages.forEach((message) => {
+  battleMessages.forEach(function(text) {
 
     const div =
       document.createElement("div");
 
-    div.textContent = message;
+    div.textContent = text;
 
-    battleLog.appendChild(div);
+    box.appendChild(div);
 
   });
 
-  battleLog.scrollTop =
-    battleLog.scrollHeight;
-
+  box.scrollTop =
+    box.scrollHeight;
 }
 
 
-// ========================================
-// セーブ
-// ========================================
+/* =========================================
+   セーブ
+========================================= */
 
 function saveGame() {
 
@@ -311,22 +279,361 @@ function loadGame() {
   const data =
     localStorage.getItem(SAVE_KEY);
 
-  if (!data) return false;
+  if (!data) {
+    return false;
+  }
 
   try {
 
-    const loaded =
+    const saved =
       JSON.parse(data);
 
     Object.assign(
       player,
-      loaded
+      saved
     );
 
     return true;
 
-  } catch {
+  } catch (error) {
 
     return false;
 
   }
+}
+
+
+function deleteSave() {
+
+  localStorage.removeItem(
+    SAVE_KEY
+  );
+
+  alert(
+    "セーブデータを削除しました。"
+  );
+
+  location.reload();
+}
+
+
+/* =========================================
+   スタート
+========================================= */
+
+function showStart() {
+
+  clearScreen();
+  clearLog();
+  updateStatus();
+
+  let continueButton = "";
+
+  if (
+    localStorage.getItem(SAVE_KEY)
+  ) {
+
+    continueButton = `
+      <button onclick="continueGame()">
+        ▶️ 続きから
+      </button>
+    `;
+
+  }
+
+  $("screen").innerHTML = `
+
+    <div class="center">
+
+      <div class="big">
+        ⚔️ 勇者の懸賞金RPG
+      </div>
+
+      <p>
+        自分だけの冒険者を作って
+        冒険を始めよう！
+      </p>
+
+      <button onclick="createPlayer()">
+        🆕 新しく始める
+      </button>
+
+      ${continueButton}
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================
+   キャラクター作成
+========================================= */
+
+function createPlayer() {
+
+  clearScreen();
+
+  $("screen").innerHTML = `
+
+    <h2>🧑 冒険者を作成</h2>
+
+    <p>
+      名前を入力してください。
+    </p>
+
+    <input
+      id="nameInput"
+      maxlength="20"
+      placeholder="名前"
+    >
+
+    <h3>職業を選んでください</h3>
+
+    <button onclick="finishCreate('勇者')">
+      ⚔️ 勇者
+    </button>
+
+    <button onclick="finishCreate('ヒーラー')">
+      💚 ヒーラー
+    </button>
+
+    <button onclick="finishCreate('剣士')">
+      🗡️ 剣士
+    </button>
+
+  `;
+
+}
+
+
+function finishCreate(job) {
+
+  const input =
+    $("nameInput");
+
+  const name =
+    input
+      ? input.value.trim()
+      : "";
+
+  if (!name) {
+
+    alert(
+      "名前を入力してください。"
+    );
+
+    return;
+
+  }
+
+  const data =
+    jobs[job];
+
+  player.name = name;
+  player.job = job;
+
+  player.level = 0;
+  player.xp = 0;
+
+  player.maxHp = data.hp;
+  player.hp = data.hp;
+
+  player.attack = data.attack;
+
+  player.money = 250;
+  player.bounty = 0;
+
+  player.weapon = "タガー";
+
+  player.skills = [
+    data.skill
+  ];
+
+  player.inventory = [
+    "タガー"
+  ];
+
+  player.defeats = 0;
+
+  player.townUnlocked = false;
+  player.cityUnlocked = false;
+
+  player.townTrust = 0;
+  player.cityTrust = 0;
+
+  player.encyclopedia = [];
+
+  saveGame();
+
+  clearLog();
+
+  writeLog(
+    "🎉 " +
+    player.name +
+    "の冒険が始まった！"
+  );
+
+  showHome();
+}
+
+
+/* =========================================
+   続きから
+========================================= */
+
+function continueGame() {
+
+  if (!loadGame()) {
+
+    alert(
+      "セーブデータを読み込めませんでした。"
+    );
+
+    return;
+
+  }
+
+  showHome();
+}
+
+
+/* =========================================
+   ホーム
+========================================= */
+
+function showHome() {
+
+  if (!player.name) {
+
+    showStart();
+
+    return;
+
+  }
+
+  clearScreen();
+  updateStatus();
+
+  $("screen").innerHTML = `
+
+    <div class="center">
+
+      <div class="big">
+        🏠 ホーム
+      </div>
+
+      <p>
+        ${player.name}の冒険
+      </p>
+
+    </div>
+
+    <div class="card">
+
+      <h3>📊 ステータス</h3>
+
+      <p>
+        👤 名前：${player.name}<br>
+        ⚔️ 職業：${player.job}<br>
+        ⭐ レベル：${player.level}<br>
+        ⭐ XP：${player.xp}<br>
+        ❤️ HP：${player.hp}/${player.maxHp}<br>
+        ⚔️ 攻撃力：${player.attack}<br>
+        💰 お金：${player.money}円<br>
+        🏆 懸賞金：${player.bounty}円<br>
+        🗡️ 武器：${player.weapon}<br>
+        👹 討伐数：${player.defeats}
+      </p>
+
+    </div>
+
+    <div class="card">
+
+      <h3>🗺️ 冒険</h3>
+
+      <button onclick="showBattle()">
+        🌱 草原で戦う
+      </button>
+
+      <button onclick="showGacha()">
+        🎰 ガチャ
+      </button>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================
+   戦闘
+========================================= */
+
+function showBattle() {
+
+  if (!player.name) {
+
+    showStart();
+
+    return;
+
+  }
+
+  clearScreen();
+
+  currentEnemy = null;
+
+  defending = false;
+
+  battleMessages = [];
+
+  clearLog();
+
+  $("screen").innerHTML = `
+
+    <div class="center">
+
+      <div class="big">
+        🌱 草原
+      </div>
+
+      <p>
+        モンスターがいるようだ……
+      </p>
+
+      <button onclick="startBattle()">
+        👹 モンスターを探す
+      </button>
+
+      <button onclick="showHome()">
+        🏠 ホームへ戻る
+      </button>
+
+    </div>
+
+  `;
+
+}
+
+
+function startBattle() {
+
+  let list =
+    monsters.filter(function(enemy) {
+
+      return enemy.area === "草原";
+
+    });
+
+  if (player.cityUnlocked) {
+
+    list = monsters;
+
+  }
+
+  const base =
+    list[
+      Math
