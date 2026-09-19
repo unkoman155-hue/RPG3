@@ -1,60 +1,38 @@
+// ==========================================
+// 勇者の懸賞金RPG
+// 完全版 game.js
+// オンライン + 公開チャット対応
+// ==========================================
+
 "use strict";
 
-// ========================================
-// 勇者の懸賞金RPG
-// game.js 完全版
-// 既存UI維持 + オンライン + 公開チャット
-// ========================================
-
-const socket = io();
+// ==========================================
+// セーブ
+// ==========================================
 
 const SAVE_KEY = "yuusha_bounty_rpg_online_v5";
 
-// ========================================
-// DOM
-// ========================================
+// ==========================================
+// Socket.IO
+// ==========================================
 
-const gameScreen = document.getElementById("gameScreen");
-const homeScreen = document.getElementById("homeScreen");
-const onlineScreen = document.getElementById("onlineScreen");
-const roomScreen = document.getElementById("roomScreen");
-const inventoryScreen = document.getElementById("inventoryScreen");
-const jobScreen = document.getElementById("jobScreen");
-const weaponScreen = document.getElementById("weaponScreen");
-const rankingScreen = document.getElementById("rankingScreen");
+let socket = null;
+let onlineMode = false;
+let currentRoomCode = null;
+let onlinePlayers = new Map();
+let chatHistory = [];
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas ? canvas.getContext("2d") : null;
+if (typeof io === "function") {
+  socket = io();
+}
 
-const playerNameEl = document.getElementById("playerName");
-const hpText = document.getElementById("hpText");
-const attackText = document.getElementById("attackText");
-const moneyText = document.getElementById("moneyText");
-const bountyText = document.getElementById("bountyText");
+// ==========================================
+// プレイヤー
+// ==========================================
 
-const onlineName = document.getElementById("onlineName");
-const roomCodeInput = document.getElementById("roomCodeInput");
-const onlineStatus = document.getElementById("onlineStatus");
-
-const roomCodeText = document.getElementById("roomCodeText");
-const roomPlayers = document.getElementById("roomPlayers");
-
-const chatMessagesEl = document.getElementById("chatMessages");
-const chatInput = document.getElementById("chatInput");
-const chatSendBtn = document.getElementById("chatSendBtn");
-
-const inventoryList = document.getElementById("inventoryList");
-const rankingList = document.getElementById("rankingList");
-
-const stick = document.getElementById("stick");
-const stickKnob = document.getElementById("stickKnob");
-
-// ========================================
-// プレイヤーデータ
-// ========================================
-
-const DEFAULT_PLAYER = {
+let player = {
   name: "勇者",
+
   job: "勇者",
 
   level: 1,
@@ -78,98 +56,74 @@ const DEFAULT_PLAYER = {
 
   day: 1,
 
-  area: "草原"
+  area: "草原",
+
+  townEventDay: 0
 };
 
-let player = loadPlayer();
-
-function loadPlayer() {
-  try {
-    const raw =
-      localStorage.getItem(SAVE_KEY);
-
-    if (!raw) {
-      return { ...DEFAULT_PLAYER };
-    }
-
-    return {
-      ...DEFAULT_PLAYER,
-      ...JSON.parse(raw)
-    };
-  } catch (e) {
-    console.warn(
-      "セーブデータ読み込み失敗",
-      e
-    );
-
-    return { ...DEFAULT_PLAYER };
-  }
-}
-
-function savePlayer() {
-  try {
-    localStorage.setItem(
-      SAVE_KEY,
-      JSON.stringify(player)
-    );
-  } catch (e) {
-    console.warn(
-      "セーブ失敗",
-      e
-    );
-  }
-}
-
-// ========================================
+// ==========================================
 // ジョブ
-// ========================================
+// ==========================================
 
 const JOBS = {
-  勇者: {
+  "勇者": {
     maxHp: 30,
     attack: 10,
     skill: "斬撃"
   },
 
-  ヒーラー: {
+  "ヒーラー": {
     maxHp: 35,
     attack: 7,
     skill: "ヒール"
   },
 
-  剣士: {
+  "剣士": {
     maxHp: 30,
     attack: 14,
     skill: "強斬り"
   }
 };
 
-// ========================================
+// ==========================================
 // スキル
-// ========================================
+// ==========================================
 
 const SKILLS = {
-  斬撃: 35,
-  ヒール: 25,
-  強斬り: 50,
-  高速切り: 65,
-  回転斬り: 80,
-  超斬撃: 120
+  "斬撃": 35,
+  "ヒール": 25,
+  "強斬り": 50,
+  "高速切り": 65,
+  "回転斬り": 80,
+  "超斬撃": 120
 };
 
-// ========================================
+// ==========================================
 // 武器
-// ========================================
+// ==========================================
 
 const WEAPON_BONUSES = {
-  タガー: 15,
-  剣: 5,
-  強化剣: 25
+  "タガー": 15,
+  "剣": 5,
+  "強化剣": 25
 };
 
-// ========================================
-// モンスター
-// ========================================
+// ==========================================
+// ボス
+// ※HP500から変更しない
+// ==========================================
+
+const BOSS = {
+  name: "懸賞金王",
+  hp: 500,
+  attack: 45,
+  xp: 1000,
+  money: 1000
+};
+
+// ==========================================
+// 敵
+// ==========================================
 
 const ENEMIES = [
   {
@@ -295,7 +249,7 @@ const ENEMIES = [
 
   {
     name: "ゴブリンキング",
-    min: 8,
+    min: 5,
     max: 20,
     hp: 230,
     attack: 24,
@@ -306,7 +260,7 @@ const ENEMIES = [
 
   {
     name: "ミノタウロス",
-    min: 10,
+    min: 7,
     max: 25,
     hp: 280,
     attack: 30,
@@ -317,8 +271,8 @@ const ENEMIES = [
 
   {
     name: "デーモン",
-    min: 15,
-    max: 35,
+    min: 10,
+    max: 30,
     hp: 350,
     attack: 38,
     xp: 400,
@@ -328,8 +282,8 @@ const ENEMIES = [
 
   {
     name: "古代竜",
-    min: 20,
-    max: 50,
+    min: 15,
+    max: 40,
     hp: 450,
     attack: 48,
     xp: 650,
@@ -338,41 +292,53 @@ const ENEMIES = [
   }
 ];
 
-// ========================================
-// ボス
-// HP500のまま
-// ========================================
+// ==========================================
+// 敵関連
+// ==========================================
 
-const BOSS = {
-  name: "懸賞金王",
-  hp: 500,
-  attack: 45,
-  xp: 1000,
-  money: 1000
-};
+let currentEnemy = null;
+let enemyHp = 0;
+let enemyMaxHp = 0;
 
-// ========================================
-// オンライン状態
-// ========================================
+// ==========================================
+// DOM
+// ==========================================
 
-let onlineState = {
-  connected: false,
-  inRoom: false,
-  roomCode: "",
-  players: []
-};
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas ? canvas.getContext("2d") : null;
 
-let currentPlayerId = null;
+const gameScreen = document.getElementById("gameScreen");
+const homeScreen = document.getElementById("homeScreen");
+const onlineScreen = document.getElementById("onlineScreen");
+const roomScreen = document.getElementById("roomScreen");
+const inventoryScreen = document.getElementById("inventoryScreen");
+const jobScreen = document.getElementById("jobScreen");
+const weaponScreen = document.getElementById("weaponScreen");
+const rankingScreen = document.getElementById("rankingScreen");
 
-// ========================================
-// 公開チャット
-// ========================================
+const playerName = document.getElementById("playerName");
+const hpText = document.getElementById("hpText");
+const attackText = document.getElementById("attackText");
+const moneyText = document.getElementById("moneyText");
+const bountyText = document.getElementById("bountyText");
 
-let chatHistory = [];
+const onlineName = document.getElementById("onlineName");
+const roomCodeInput = document.getElementById("roomCodeInput");
+const onlineStatus = document.getElementById("onlineStatus");
 
-// ========================================
+const roomCodeText = document.getElementById("roomCodeText");
+const roomPlayers = document.getElementById("roomPlayers");
+
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const chatSendBtn = document.getElementById("chatSendBtn");
+
+const inventoryList = document.getElementById("inventoryList");
+const rankingList = document.getElementById("rankingList");
+
+// ==========================================
 // 画面
-// ========================================
+// ==========================================
 
 function hideAllScreens() {
   [
@@ -383,97 +349,134 @@ function hideAllScreens() {
     jobScreen,
     weaponScreen,
     rankingScreen
-  ].forEach(el => {
-    if (el) {
-      el.classList.remove("active");
-      el.classList.add("hidden");
+  ].forEach(screen => {
+    if (screen) {
+      screen.style.display = "none";
     }
   });
 }
 
-function showScreen(screen) {
+function showHome() {
   hideAllScreens();
 
-  if (!screen) {
-    return;
+  if (homeScreen) {
+    homeScreen.style.display = "flex";
   }
-
-  screen.classList.remove("hidden");
-  screen.classList.add("active");
-}
-
-function showHome() {
-  showScreen(homeScreen);
-
-  updatePlayerUI();
 }
 
 function showOnline() {
-  showScreen(onlineScreen);
+  hideAllScreens();
 
-  if (onlineName) {
-    onlineName.value =
-      player.name || "勇者";
+  if (onlineScreen) {
+    onlineScreen.style.display = "flex";
   }
 
-  setOnlineStatus(
-    onlineState.connected
-      ? "🟢 サーバー接続中"
-      : "🔴 サーバー未接続"
-  );
+  if (onlineName && !onlineName.value) {
+    onlineName.value = player.name;
+  }
 }
 
 function showRoom() {
-  showScreen(roomScreen);
-
-  renderRoomPlayers();
-  renderChatMessages();
-}
-
-function showGame() {
   hideAllScreens();
 
-  if (gameScreen) {
-    gameScreen.classList.remove("hidden");
-    gameScreen.style.display = "block";
+  if (roomScreen) {
+    roomScreen.style.display = "flex";
   }
-
-  updatePlayerUI();
 }
 
 function showInventory() {
-  showScreen(inventoryScreen);
+  hideAllScreens();
+
+  if (inventoryScreen) {
+    inventoryScreen.style.display = "flex";
+  }
 
   renderInventory();
 }
 
-function showJobs() {
-  showScreen(jobScreen);
+function showJob() {
+  hideAllScreens();
+
+  if (jobScreen) {
+    jobScreen.style.display = "flex";
+  }
 }
 
-function showWeapons() {
-  showScreen(weaponScreen);
+function showWeapon() {
+  hideAllScreens();
+
+  if (weaponScreen) {
+    weaponScreen.style.display = "flex";
+  }
 }
 
 function showRanking() {
-  showScreen(rankingScreen);
+  hideAllScreens();
+
+  if (rankingScreen) {
+    rankingScreen.style.display = "flex";
+  }
 
   renderRanking();
 }
 
-// ========================================
-// ゲーム画面表示
-// ========================================
+// ==========================================
+// セーブ
+// ==========================================
 
-function updatePlayerUI() {
-  if (playerNameEl) {
-    playerNameEl.textContent =
-      player.name;
+function saveGame() {
+  try {
+    localStorage.setItem(
+      SAVE_KEY,
+      JSON.stringify(player)
+    );
+  } catch (error) {
+    console.warn("セーブ失敗", error);
+  }
+}
+
+function loadGame() {
+  try {
+    const saved = localStorage.getItem(SAVE_KEY);
+
+    if (!saved) return;
+
+    const data = JSON.parse(saved);
+
+    if (!data || typeof data !== "object") {
+      return;
+    }
+
+    player = {
+      ...player,
+      ...data
+    };
+
+    if (!Array.isArray(player.skills)) {
+      player.skills = ["斬撃"];
+    }
+
+    if (!Array.isArray(player.inventory)) {
+      player.inventory = ["タガー"];
+    }
+
+  } catch (error) {
+    console.warn("ロード失敗", error);
+  }
+}
+
+// ==========================================
+// UI更新
+// ==========================================
+
+function updateUI() {
+  if (playerName) {
+    playerName.textContent = player.name;
   }
 
   if (hpText) {
     hpText.textContent =
-      `${player.hp} / ${player.maxHp}`;
+      `${Math.max(0, player.hp)} / ${player.maxHp}`;
   }
 
   if (attackText) {
@@ -492,21 +495,19 @@ function updatePlayerUI() {
   }
 }
 
-// ========================================
+// ==========================================
 // レベル
-// ========================================
+// ==========================================
 
-function xpRequired() {
-  return player.level * 100;
+function requiredXp() {
+  return 100 + (player.level - 1) * 50;
 }
 
-function gainXP(amount) {
+function gainXp(amount) {
   player.xp += amount;
 
-  while (
-    player.xp >= xpRequired()
-  ) {
-    player.xp -= xpRequired();
+  while (player.xp >= requiredXp()) {
+    player.xp -= requiredXp();
 
     player.level++;
 
@@ -514,33 +515,27 @@ function gainXP(amount) {
     player.hp = player.maxHp;
 
     player.attack += 2;
-  }
 
-  savePlayer();
-  updatePlayerUI();
+    alert(`レベルアップ！\nLv.${player.level}`);
+  }
 }
 
-// ========================================
+// ==========================================
 // 攻撃力
-// ========================================
+// ==========================================
 
-function calculateAttackDamage(
-  skillPower = 0
-) {
-  const weaponBonus =
-    WEAPON_BONUSES[player.weapon] || 0;
-
+function calculateAttackDamage(skillPower = 0) {
   let damage =
     player.attack +
     skillPower +
-    weaponBonus;
+    (WEAPON_BONUSES[player.weapon] || 0);
 
-  // クリティカル15%
+  // クリティカル
   if (Math.random() < 0.15) {
     damage += 5;
   }
 
-  // タガー出血25%
+  // タガーの出血
   if (
     player.weapon === "タガー" &&
     Math.random() < 0.25
@@ -548,988 +543,633 @@ function calculateAttackDamage(
     damage += 5;
   }
 
-  return Math.max(
-    1,
-    Math.floor(damage)
+  return Math.max(1, damage);
+}
+
+// ==========================================
+// 敵選択
+// ==========================================
+
+function getAvailableEnemies() {
+  const list = ENEMIES.filter(enemy => {
+    return (
+      player.level >= enemy.min &&
+      player.level <= enemy.max &&
+      enemy.area === player.area
+    );
+  });
+
+  if (list.length > 0) {
+    return list;
+  }
+
+  return ENEMIES.filter(enemy => {
+    return enemy.area === player.area;
+  });
+}
+
+function spawnEnemy() {
+  const available = getAvailableEnemies();
+
+  if (available.length === 0) {
+    currentEnemy = null;
+    enemyHp = 0;
+    enemyMaxHp = 0;
+    return;
+  }
+
+  currentEnemy =
+    available[
+      Math.floor(Math.random() * available.length)
+    ];
+
+  enemyMaxHp = currentEnemy.hp;
+  enemyHp = enemyMaxHp;
+}
+
+// ==========================================
+// 戦闘
+// ==========================================
+
+function attackEnemy(skillName = "通常攻撃") {
+  if (!currentEnemy) {
+    spawnEnemy();
+  }
+
+  if (!currentEnemy) return;
+
+  let skillPower = 0;
+
+  if (skillName && SKILLS[skillName]) {
+    skillPower = SKILLS[skillName];
+  }
+
+  // ヒール
+  if (skillName === "ヒール") {
+    player.hp = Math.min(
+      player.maxHp,
+      player.hp + SKILLS["ヒール"]
+    );
+
+    updateUI();
+    saveGame();
+
+    return;
+  }
+
+  const damage =
+    calculateAttackDamage(skillPower);
+
+  enemyHp -= damage;
+
+  if (enemyHp <= 0) {
+    enemyDefeated();
+    return;
+  }
+
+  enemyAttack();
+}
+
+function enemyAttack() {
+  if (!currentEnemy) return;
+
+  player.hp -= currentEnemy.attack;
+
+  if (player.hp <= 0) {
+    player.hp = 0;
+
+    player.defeats++;
+
+    // 死亡時の処理
+    player.money = 0;
+    player.bounty = 0;
+    player.xp = 0;
+    player.level = 1;
+
+    const job = JOBS[player.job] || JOBS["勇者"];
+
+    player.maxHp = job.maxHp;
+    player.hp = player.maxHp;
+    player.attack = job.attack;
+
+    alert("倒されてしまった……\n最初からやり直しです。");
+  }
+
+  updateUI();
+  saveGame();
+}
+
+function enemyDefeated() {
+  if (!currentEnemy) return;
+
+  player.money += currentEnemy.money;
+  player.bounty += Math.floor(
+    currentEnemy.money / 2
   );
+
+  gainXp(currentEnemy.xp);
+
+  alert(
+    `${currentEnemy.name}を倒した！\n` +
+    `💰 ${currentEnemy.money}G\n` +
+    `XP +${currentEnemy.xp}`
+  );
+
+  spawnEnemy();
+
+  updateUI();
+  saveGame();
 }
 
-// ========================================
-// ジョブ変更
-// ========================================
+// ==========================================
+// ボス戦
+// ==========================================
 
-function changeJob(job) {
-  const info = JOBS[job];
+function startBossBattle() {
+  currentEnemy = {
+    ...BOSS
+  };
 
-  if (!info) {
+  enemyMaxHp = BOSS.hp;
+  enemyHp = BOSS.hp;
+}
+
+function attackBoss(skillName = "通常攻撃") {
+  if (
+    !currentEnemy ||
+    currentEnemy.name !== BOSS.name
+  ) {
+    startBossBattle();
+  }
+
+  let skillPower = 0;
+
+  if (SKILLS[skillName]) {
+    skillPower = SKILLS[skillName];
+  }
+
+  if (skillName === "ヒール") {
+    player.hp = Math.min(
+      player.maxHp,
+      player.hp + SKILLS["ヒール"]
+    );
+
+    updateUI();
+    saveGame();
+
     return;
   }
 
-  player.job = job;
+  const damage =
+    calculateAttackDamage(skillPower);
 
-  player.maxHp =
-    info.maxHp;
+  enemyHp -= damage;
 
-  player.hp =
-    player.maxHp;
+  if (enemyHp <= 0) {
+    player.money += BOSS.money;
+    player.bounty += BOSS.money;
 
-  player.attack =
-    info.attack;
+    gainXp(BOSS.xp);
 
-  if (
-    !player.skills.includes(
-      info.skill
-    )
-  ) {
-    player.skills.push(
-      info.skill
+    alert(
+      "懸賞金王を撃破！\n" +
+      "🏆 大量の懸賞金を獲得！"
     );
+
+    currentEnemy = null;
+    enemyHp = 0;
+    enemyMaxHp = 0;
+
+    updateUI();
+    saveGame();
+
+    return;
   }
 
-  savePlayer();
-  updatePlayerUI();
+  player.hp -= BOSS.attack;
+
+  if (player.hp <= 0) {
+    player.hp = 0;
+
+    player.money = 0;
+    player.bounty = 0;
+    player.xp = 0;
+    player.level = 1;
+
+    const job = JOBS[player.job] || JOBS["勇者"];
+
+    player.maxHp = job.maxHp;
+    player.hp = player.maxHp;
+    player.attack = job.attack;
+
+    alert("懸賞金王に敗北……");
+  }
+
+  updateUI();
+  saveGame();
+}
+
+// ==========================================
+// ジョブ
+// ==========================================
+
+function changeJob(jobName) {
+  if (!JOBS[jobName]) return;
+
+  player.job = jobName;
+
+  const job = JOBS[jobName];
+
+  player.maxHp = job.maxHp;
+  player.hp = Math.min(
+    player.hp,
+    player.maxHp
+  );
+
+  player.attack = job.attack;
+
+  if (!player.skills.includes(job.skill)) {
+    player.skills.push(job.skill);
+  }
+
+  updateUI();
+  saveGame();
+
+  alert(`${jobName}に変更しました！`);
 
   showHome();
 }
 
-// ========================================
-// 武器変更
-// ========================================
+// ==========================================
+// 武器
+// ==========================================
 
-function changeWeapon(weapon) {
-  if (
-    !WEAPON_BONUSES.hasOwnProperty(
-      weapon
-    )
-  ) {
+function changeWeapon(weaponName) {
+  if (!(weaponName in WEAPON_BONUSES)) {
     return;
   }
 
-  player.weapon = weapon;
-
-  if (
-    !player.inventory.includes(
-      weapon
-    )
-  ) {
-    player.inventory.push(
-      weapon
-    );
+  if (!player.inventory.includes(weaponName)) {
+    player.inventory.push(weaponName);
   }
 
-  savePlayer();
-  updatePlayerUI();
+  player.weapon = weaponName;
+
+  updateUI();
+  saveGame();
+
+  alert(`${weaponName}を装備しました！`);
 
   showHome();
 }
 
-// ========================================
+// ==========================================
 // インベントリ
-// ========================================
+// ==========================================
 
 function renderInventory() {
-  if (!inventoryList) {
-    return;
-  }
+  if (!inventoryList) return;
+
+  inventoryList.innerHTML = "";
 
   if (
     !player.inventory ||
     player.inventory.length === 0
   ) {
-    inventoryList.innerHTML =
-      "<p>インベントリは空です。</p>";
+    inventoryList.textContent =
+      "アイテムはありません。";
 
     return;
   }
 
-  inventoryList.innerHTML =
-    player.inventory
-      .map(item => {
-        const equipped =
-          item === player.weapon
-            ? " ← 装備中"
-            : "";
+  player.inventory.forEach(item => {
+    const div = document.createElement("div");
 
-        return `
-          <div class="inventory-item">
-            ${escapeHTML(item)}
-            ${equipped}
-          </div>
-        `;
-      })
-      .join("");
+    div.textContent =
+      item === player.weapon
+        ? `⚔️ ${item}（装備中）`
+        : `📦 ${item}`;
+
+    inventoryList.appendChild(div);
+  });
 }
 
-// ========================================
+// ==========================================
 // ランキング
-// ========================================
+// ==========================================
 
 function renderRanking() {
-  if (!rankingList) {
-    return;
-  }
+  if (!rankingList) return;
 
-  const list = [
+  rankingList.innerHTML = "";
+
+  const players = [
     {
       name: player.name,
       bounty: player.bounty
     }
   ];
 
-  list.sort(
-    (a, b) =>
-      b.bounty - a.bounty
-  );
+  onlinePlayers.forEach(p => {
+    if (p.id === getSocketId()) return;
 
-  rankingList.innerHTML =
-    list
-      .map(
-        (p, index) => `
-          <div class="ranking-item">
-            🏆 ${index + 1}位
-            ${escapeHTML(p.name)}
-            ― ${p.bounty}
-          </div>
-        `
-      )
-      .join("");
-}
+    players.push({
+      name: p.name,
+      bounty: p.bounty || 0
+    });
+  });
 
-// ========================================
-// モンスター
-// ========================================
+  players.sort((a, b) => {
+    return b.bounty - a.bounty;
+  });
 
-let currentEnemy = null;
+  players.forEach((p, index) => {
+    const div = document.createElement("div");
 
-function getAvailableEnemies() {
-  return ENEMIES.filter(enemy => {
-    return (
-      player.level >= enemy.min &&
-      player.level <= enemy.max
-    );
+    div.textContent =
+      `${index + 1}位　${p.name}　🏆 ${p.bounty}`;
+
+    rankingList.appendChild(div);
   });
 }
 
-function createEnemy() {
-  const list =
-    getAvailableEnemies();
+// ==========================================
+// オンライン
+// ==========================================
 
-  const source =
-    list.length
-      ? list[
-          Math.floor(
-            Math.random() *
-              list.length
-          )
-        ]
-      : ENEMIES[0];
-
-  return {
-    ...source,
-    maxHp: source.hp,
-    hp: source.hp
-  };
+function getSocketId() {
+  return socket ? socket.id : null;
 }
 
-function startBattle() {
-  currentEnemy =
-    createEnemy();
-
-  showGame();
-
-  drawGame();
-
-  console.log(
-    `${currentEnemy.name}が出現`
-  );
-}
-
-// ========================================
-// 通常攻撃
-// ========================================
-
-function attackEnemy() {
-  if (!currentEnemy) {
-    startBattle();
-  }
-
-  if (!currentEnemy) {
-    return;
-  }
-
-  const damage =
-    calculateAttackDamage(0);
-
-  currentEnemy.hp =
-    Math.max(
-      0,
-      currentEnemy.hp - damage
-    );
-
-  console.log(
-    `${currentEnemy.name}に${damage}ダメージ`
-  );
-
-  if (
-    currentEnemy.hp <= 0
-  ) {
-    defeatEnemy();
-  } else {
-    enemyAttack();
-  }
-
-  drawGame();
-}
-
-// ========================================
-// スキル
-// ========================================
-
-function useSkill(skillName) {
-  if (!currentEnemy) {
-    startBattle();
-  }
-
-  if (!currentEnemy) {
-    return;
-  }
-
-  const power =
-    SKILLS[skillName];
-
-  if (!power) {
-    return;
-  }
-
-  // ヒール
-  if (
-    skillName === "ヒール"
-  ) {
-    player.hp =
-      Math.min(
-        player.maxHp,
-        player.hp + power
-      );
-
-    savePlayer();
-    updatePlayerUI();
-
-    return;
-  }
-
-  const damage =
-    calculateAttackDamage(power);
-
-  currentEnemy.hp =
-    Math.max(
-      0,
-      currentEnemy.hp - damage
-    );
-
-  if (
-    currentEnemy.hp <= 0
-  ) {
-    defeatEnemy();
-  } else {
-    enemyAttack();
-  }
-
-  drawGame();
-}
-
-// ========================================
-// 敵攻撃
-// ========================================
-
-function enemyAttack() {
-  if (!currentEnemy) {
-    return;
-  }
-
-  const damage =
-    Math.max(
-      1,
-      currentEnemy.attack
-    );
-
-  player.hp =
-    Math.max(
-      0,
-      player.hp - damage
-    );
-
-  updatePlayerUI();
-  savePlayer();
-
-  if (player.hp <= 0) {
-    gameOver();
+function setOnlineStatus(text) {
+  if (onlineStatus) {
+    onlineStatus.textContent = text;
   }
 }
 
-// ========================================
-// モンスター撃破
-// ========================================
+function updateOnlinePlayerList() {
+  if (!roomPlayers) return;
 
-function defeatEnemy() {
-  if (!currentEnemy) {
-    return;
-  }
+  roomPlayers.innerHTML = "";
 
-  const enemy =
-    currentEnemy;
+  onlinePlayers.forEach(p => {
+    const div = document.createElement("div");
 
-  currentEnemy = null;
+    div.textContent =
+      `👤 ${p.name}　❤️ ${p.hp}/${p.maxHp}`;
 
-  player.defeats++;
-
-  player.money +=
-    enemy.money;
-
-  player.bounty +=
-    enemy.xp;
-
-  gainXP(enemy.xp);
-
-  savePlayer();
-  updatePlayerUI();
-
-  console.log(
-    `${enemy.name}を倒した！`
-  );
+    roomPlayers.appendChild(div);
+  });
 }
 
-// ========================================
-// 回復
-// ========================================
-
-function healAtTown() {
-  const price = 30;
-
-  if (
-    player.hp >= player.maxHp
-  ) {
-    return;
-  }
-
-  if (
-    player.money < price
-  ) {
-    return;
-  }
-
-  player.money -= price;
-
-  player.hp =
-    player.maxHp;
-
-  savePlayer();
-  updatePlayerUI();
-}
-
-// ========================================
-// GAME OVER
-// ========================================
-
-function gameOver() {
-  player.hp = 1;
-
-  savePlayer();
-  updatePlayerUI();
-
-  alert(
-    "💀 HPが0になりました！"
-  );
-}
-
-// ========================================
-// HTMLエスケープ
-// ========================================
-
-function escapeHTML(text) {
-  return String(text ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll(
-      "'",
-      "&#039;"
-    );
-}
-
-// ========================================
-// オンライン接続
-// ========================================
-
-socket.on(
-  "connect",
-  () => {
-    onlineState.connected =
-      true;
-
-    currentPlayerId =
-      socket.id;
-
-    setOnlineStatus(
-      "🟢 サーバーに接続しました"
-    );
-  }
-);
-
-socket.on(
-  "disconnect",
-  () => {
-    onlineState.connected =
-      false;
-
-    onlineState.inRoom =
-      false;
-
-    onlineState.roomCode =
-      "";
-
-    onlineState.players =
-      [];
-
-    currentPlayerId = null;
-
-    setOnlineStatus(
-      "🔴 サーバーから切断されました"
-    );
-  }
-);
-
-// ========================================
-// ルーム作成
-// ========================================
-
-socket.on(
-  "roomCreated",
-  data => {
-    const code =
-      data?.roomCode ||
-      data?.code ||
-      "";
-
-    if (!code) {
-      return;
-    }
-
-    onlineState.inRoom =
-      true;
-
-    onlineState.roomCode =
-      code;
-
-    roomCodeText.textContent =
-      code;
-
-    showRoom();
-
-    requestPlayers();
-  }
-);
-
-// ========================================
-// ルーム参加
-// ========================================
-
-socket.on(
-  "roomJoined",
-  data => {
-    const code =
-      data?.roomCode ||
-      data?.code ||
-      onlineState.roomCode;
-
-    onlineState.inRoom =
-      true;
-
-    onlineState.roomCode =
-      code;
-
-    roomCodeText.textContent =
-      code;
-
-    showRoom();
-
-    requestPlayers();
-  }
-);
-
-// ========================================
-// ルーム状態
-// ========================================
-
-socket.on(
-  "roomState",
-  data => {
-    if (!data) {
-      return;
-    }
-
-    onlineState.inRoom =
-      true;
-
-    onlineState.roomCode =
-      data.roomCode ||
-      data.code ||
-      onlineState.roomCode;
-
-    onlineState.players =
-      Array.isArray(data.players)
-        ? data.players
-        : [];
-
-    roomCodeText.textContent =
-      onlineState.roomCode ||
-      "---";
-
-    renderRoomPlayers();
-  }
-);
-
-// ========================================
-// プレイヤー一覧
-// ========================================
-
-socket.on(
-  "players",
-  players => {
-    if (
-      Array.isArray(players)
-    ) {
-      onlineState.players =
-        players;
-    } else if (
-      players &&
-      typeof players === "object"
-    ) {
-      onlineState.players =
-        Object.values(players);
-    }
-
-    renderRoomPlayers();
-  }
-);
-
-socket.on(
-  "playerList",
-  players => {
-    if (
-      Array.isArray(players)
-    ) {
-      onlineState.players =
-        players;
-    }
-
-    renderRoomPlayers();
-  }
-);
-
-socket.on(
-  "playersUpdate",
-  players => {
-    if (
-      Array.isArray(players)
-    ) {
-      onlineState.players =
-        players;
-    }
-
-    renderRoomPlayers();
-  }
-);
-
-// ========================================
-// サーバーエラー
-// ========================================
-
-socket.on(
-  "roomError",
-  message => {
-    setOnlineStatus(
-      "❌ " +
-        (
-          message ||
-          "ルームエラー"
-        )
-    );
-  }
-);
-
-socket.on(
-  "errorMessage",
-  message => {
-    setOnlineStatus(
-      "❌ " +
-        (
-          message ||
-          "エラー"
-        )
-    );
-  }
-);
-
-// ========================================
-// 公開チャット履歴
-// ========================================
-
-socket.on(
-  "chatHistory",
-  messages => {
-    if (
-      Array.isArray(messages)
-    ) {
-      chatHistory =
-        messages.slice(-100);
-    } else {
-      chatHistory = [];
-    }
-
-    renderChatMessages();
-  }
-);
-
-// ========================================
-// 公開チャット受信
-// ========================================
-
-socket.on(
-  "chatMessage",
-  message => {
-    if (!message) {
-      return;
-    }
-
-    chatHistory.push({
-      name:
-        message.name ||
-        "名無し",
-
-      text:
-        message.text ||
-        "",
-
-      time:
-        message.time ||
-        Date.now(),
-
-      system:
-        !!message.system
-    });
-
-    // 最大100件
-    if (
-      chatHistory.length > 100
-    ) {
-      chatHistory =
-        chatHistory.slice(-100);
-    }
-
-    renderChatMessages();
-  }
-);
-
-// ========================================
-// チャット表示
-// ========================================
+// ==========================================
+// チャット
+// ==========================================
 
 function renderChatMessages() {
-  if (!chatMessagesEl) {
-    return;
-  }
+  if (!chatMessages) return;
 
-  chatMessagesEl.innerHTML =
-    "";
+  chatMessages.innerHTML = "";
 
-  for (
-    const message of chatHistory
-  ) {
-    if (!message) {
-      continue;
-    }
+  chatHistory.forEach(message => {
+    const div = document.createElement("div");
 
-    const div =
-      document.createElement(
-        "div"
-      );
-
-    if (message.system) {
-      div.className =
-        "chat-system";
-
+    if (message.type === "system") {
       div.textContent =
-        message.text || "";
-
-      chatMessagesEl.appendChild(
-        div
-      );
-
-      continue;
+        `【SYSTEM】${message.text}`;
+    } else {
+      div.textContent =
+        `${message.name}: ${message.text}`;
     }
 
-    const name =
-      escapeHTML(
-        message.name ||
-          "名無し"
-      );
+    chatMessages.appendChild(div);
+  });
 
-    const text =
-      escapeHTML(
-        message.text ||
-          ""
-      );
-
-    const time =
-      formatChatTime(
-        message.time
-      );
-
-    div.className =
-      "chat-message";
-
-    div.innerHTML =
-      `<span class="chat-name">${name}</span>` +
-      ` <span class="chat-text">${text}</span>` +
-      ` <span class="chat-time">${time}</span>`;
-
-    chatMessagesEl.appendChild(
-      div
-    );
-  }
-
-  chatMessagesEl.scrollTop =
-    chatMessagesEl.scrollHeight;
+  chatMessages.scrollTop =
+    chatMessages.scrollHeight;
 }
-
-function formatChatTime(time) {
-  if (!time) {
-    return "";
-  }
-
-  const date =
-    new Date(time);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  return date.toLocaleTimeString(
-    "ja-JP",
-    {
-      hour: "2-digit",
-      minute: "2-digit"
-    }
-  );
-}
-
-// ========================================
-// チャット送信
-// ========================================
 
 function sendChatMessage() {
-  if (
-    !socket.connected
-  ) {
-    return;
-  }
+  if (!socket) return;
 
-  if (
-    !onlineState.inRoom
-  ) {
-    return;
-  }
+  if (!currentRoomCode) return;
 
-  if (!chatInput) {
-    return;
-  }
+  if (!chatInput) return;
 
-  let text =
+  const text =
     chatInput.value.trim();
 
-  if (!text) {
-    return;
-  }
+  if (!text) return;
 
-  // 200文字まで
-  text =
-    text.slice(0, 200);
-
-  const name =
-    (
-      onlineName?.value ||
-      player.name ||
-      "名無し"
-    ).trim() || "名無し";
-
-  // 自分の名前も保存
-  player.name =
-    name;
-
-  savePlayer();
-  updatePlayerUI();
-
-  socket.emit(
-    "chatMessage",
-    {
-      text,
-      name
-    }
-  );
+  socket.emit("chatMessage", {
+    text: text.slice(0, 200)
+  });
 
   chatInput.value = "";
-
-  chatInput.focus();
 }
 
-// ========================================
-// プレイヤー一覧表示
-// ========================================
+if (chatSendBtn) {
+  chatSendBtn.addEventListener(
+    "click",
+    sendChatMessage
+  );
+}
 
-function renderRoomPlayers() {
-  if (!roomPlayers) {
-    return;
-  }
-
-  roomPlayers.innerHTML =
-    "";
-
-  if (
-    onlineState.players.length === 0
-  ) {
-    roomPlayers.innerHTML =
-      "<div>👤 プレイヤーを読み込み中...</div>";
-
-    return;
-  }
-
-  onlineState.players.forEach(
-    p => {
-      if (!p) {
-        return;
+if (chatInput) {
+  chatInput.addEventListener(
+    "keydown",
+    event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendChatMessage();
       }
-
-      const div =
-        document.createElement(
-          "div"
-        );
-
-      const id =
-        p.id ||
-        p.playerId ||
-        p.socketId;
-
-      const isMe =
-        id === currentPlayerId;
-
-      div.textContent =
-        isMe
-          ? `🟢 ${p.name || player.name}（自分）`
-          : `👤 ${p.name || "名無し"}`;
-
-      roomPlayers.appendChild(
-        div
-      );
     }
   );
 }
 
-// ========================================
-// プレイヤー一覧要求
-// ========================================
+// ==========================================
+// Socket.IOイベント
+// ==========================================
 
-function requestPlayers() {
-  if (
-    !socket.connected
-  ) {
-    return;
-  }
+if (socket) {
 
-  socket.emit(
-    "requestPlayers"
-  );
+  socket.on("roomCreated", data => {
+    currentRoomCode = data.code;
+
+    onlineMode = true;
+
+    if (roomCodeText) {
+      roomCodeText.textContent =
+        currentRoomCode;
+    }
+
+    showRoom();
+
+    socket.emit("requestPlayers");
+  });
+
+  socket.on("roomJoined", data => {
+    currentRoomCode = data.code;
+
+    onlineMode = true;
+
+    if (roomCodeText) {
+      roomCodeText.textContent =
+        currentRoomCode;
+    }
+
+    showRoom();
+
+    socket.emit("requestPlayers");
+  });
+
+  socket.on("onlineError", message => {
+    setOnlineStatus(
+      `❌ ${message}`
+    );
+  });
+
+  socket.on("players", players => {
+    onlinePlayers.clear();
+
+    players.forEach(p => {
+      onlinePlayers.set(p.id, p);
+    });
+
+    updateOnlinePlayerList();
+    renderRanking();
+  });
+
+  socket.on("playerUpdated", p => {
+    onlinePlayers.set(p.id, p);
+
+    updateOnlinePlayerList();
+  });
+
+  socket.on("playerMoved", data => {
+    const p =
+      onlinePlayers.get(data.id);
+
+    if (!p) return;
+
+    p.x = data.x;
+    p.y = data.y;
+
+    onlinePlayers.set(
+      data.id,
+      p
+    );
+  });
+
+  socket.on("playerAttacked", data => {
+    const target =
+      onlinePlayers.get(data.targetId);
+
+    if (!target) return;
+
+    target.hp = data.hp;
+
+    onlinePlayers.set(
+      data.targetId,
+      target
+    );
+
+    updateOnlinePlayerList();
+  });
+
+  socket.on("playerRespawned", data => {
+    const target =
+      onlinePlayers.get(data.id);
+
+    if (!target) return;
+
+    target.x = data.x;
+    target.y = data.y;
+    target.hp = data.hp;
+
+    onlinePlayers.set(
+      data.id,
+      target
+    );
+
+    updateOnlinePlayerList();
+  });
+
+  socket.on("chatHistory", messages => {
+    if (!Array.isArray(messages)) {
+      chatHistory = [];
+      return;
+    }
+
+    chatHistory = messages.slice(-100);
+
+    renderChatMessages();
+  });
+
+  socket.on("chatMessage", message => {
+    chatHistory.push(message);
+
+    if (chatHistory.length > 100) {
+      chatHistory.shift();
+    }
+
+    renderChatMessages();
+  });
 }
 
-// ========================================
-// オンラインルーム作成
-// ========================================
+// ==========================================
+// ルーム作成
+// ==========================================
 
-function createRoom() {
-  const name =
-    (
-      onlineName?.value ||
-      player.name ||
-      "勇者"
-    ).trim();
-
-  if (!name) {
+function createOnlineRoom() {
+  if (!socket) {
     setOnlineStatus(
-      "名前を入力してください"
+      "❌ サーバーに接続できません"
     );
 
     return;
   }
+
+  const name =
+    onlineName?.value.trim() ||
+    "勇者";
 
   player.name =
-    name;
+    name.slice(0, 20);
 
-  savePlayer();
+  saveGame();
 
-  if (
-    !socket.connected
-  ) {
-    setOnlineStatus(
-      "サーバーに接続中..."
-    );
-
-    socket.connect();
-
-    setTimeout(
-      createRoom,
-      500
-    );
-
-    return;
-  }
+  setOnlineStatus(
+    "ルームを作成しています..."
+  );
 
   socket.emit(
     "createRoom",
     {
-      name
+      name: player.name
     }
   );
 }
 
-// ========================================
-// オンラインルーム参加
-// ========================================
+// ==========================================
+// ルーム参加
+// ==========================================
 
-function joinRoom() {
-  const name =
-    (
-      onlineName?.value ||
-      player.name ||
-      "勇者"
-    ).trim();
-
-  const code =
-    (
-      roomCodeInput?.value ||
-      ""
-    ).trim();
-
-  if (!name) {
+function joinOnlineRoom() {
+  if (!socket) {
     setOnlineStatus(
-      "名前を入力してください"
+      "❌ サーバーに接続できません"
     );
 
     return;
   }
+
+  const name =
+    onlineName?.value.trim() ||
+    "勇者";
+
+  const code =
+    roomCodeInput?.value.trim();
 
   if (!code) {
     setOnlineStatus(
@@ -1540,436 +1180,219 @@ function joinRoom() {
   }
 
   player.name =
-    name;
+    name.slice(0, 20);
 
-  savePlayer();
+  saveGame();
 
-  onlineState.roomCode =
-    code;
-
-  if (
-    !socket.connected
-  ) {
-    setOnlineStatus(
-      "サーバーに接続中..."
-    );
-
-    socket.connect();
-
-    setTimeout(
-      joinRoom,
-      500
-    );
-
-    return;
-  }
+  setOnlineStatus(
+    "ルームに参加しています..."
+  );
 
   socket.emit(
     "joinRoom",
     {
-      roomCode: code,
-      code: code,
-      name
+      name: player.name,
+      code
     }
   );
 }
 
-// ========================================
+// ==========================================
 // ルーム退出
-// ========================================
+// ==========================================
 
-function leaveRoom() {
-  if (
-    socket.connected &&
-    onlineState.inRoom
-  ) {
-    socket.emit(
-      "leaveRoom"
-    );
+function leaveOnlineRoom() {
+  if (socket && currentRoomCode) {
+    socket.emit("leaveRoom");
   }
 
-  onlineState.inRoom =
-    false;
+  currentRoomCode = null;
+  onlineMode = false;
 
-  onlineState.roomCode =
-    "";
-
-  onlineState.players =
-    [];
+  onlinePlayers.clear();
 
   chatHistory = [];
-
-  renderChatMessages();
-  renderRoomPlayers();
 
   showOnline();
 }
 
-// ========================================
+// ==========================================
 // オンラインゲームへ
-// ========================================
+// ==========================================
 
 function enterOnlineGame() {
-  if (
-    !onlineState.inRoom
-  ) {
+  if (!currentRoomCode) {
     return;
   }
 
-  showGame();
+  hideAllScreens();
+
+  if (gameScreen) {
+    gameScreen.style.display = "block";
+  }
+
+  updateUI();
 
   sendPlayerUpdate();
 }
 
-// ========================================
-// プレイヤー移動同期
-// ========================================
+// ==========================================
+// プレイヤー同期
+// ==========================================
 
-function sendPlayerMove(x, y) {
-  if (
-    !socket.connected ||
-    !onlineState.inRoom
-  ) {
-    return;
-  }
+function sendPlayerUpdate() {
+  if (!socket) return;
 
-  socket.emit(
-    "movePlayer",
-    {
-      x,
-      y
-    }
-  );
+  if (!currentRoomCode) return;
+
+  socket.emit("updatePlayer", {
+    name: player.name,
+    x: worldPlayer.x,
+    y: worldPlayer.y,
+
+    hp: player.hp,
+    maxHp: player.maxHp,
+
+    bounty: player.bounty,
+
+    job: player.job,
+    weapon: player.weapon
+  });
 }
 
-function sendPlayerUpdate(data = {}) {
-  if (
-    !socket.connected ||
-    !onlineState.inRoom
-  ) {
-    return;
-  }
+// ==========================================
+// ゲームワールド
+// ==========================================
 
-  socket.emit(
-    "updatePlayer",
-    {
-      name:
-        player.name,
+const world = {
+  width: 2400,
+  height: 1600
+};
 
-      level:
-        player.level,
+const worldPlayer = {
+  x: 400,
+  y: 300,
+  speed: 4
+};
 
-      hp:
-        player.hp,
-
-      maxHp:
-        player.maxHp,
-
-      attack:
-        player.attack,
-
-      ...data
-    }
-  );
-}
-
-// ========================================
-// キャンバス
-// ========================================
-
-let canvasWidth = 0;
-let canvasHeight = 0;
-
-function resizeCanvas() {
-  if (!canvas || !ctx) {
-    return;
-  }
-
-  const dpr =
-    window.devicePixelRatio ||
-    1;
-
-  canvasWidth =
-    window.innerWidth;
-
-  canvasHeight =
-    window.innerHeight;
-
-  canvas.width =
-    canvasWidth * dpr;
-
-  canvas.height =
-    canvasHeight * dpr;
-
-  canvas.style.width =
-    canvasWidth + "px";
-
-  canvas.style.height =
-    canvasHeight + "px";
-
-  ctx.setTransform(
-    dpr,
-    0,
-    0,
-    dpr,
-    0,
-    0
-  );
-
-  drawGame();
-}
+let keys = {};
 
 window.addEventListener(
-  "resize",
-  resizeCanvas
+  "keydown",
+  event => {
+    keys[event.key.toLowerCase()] = true;
+
+    if (
+      [
+        "arrowup",
+        "arrowdown",
+        "arrowleft",
+        "arrowright",
+        " "
+      ].includes(event.key.toLowerCase())
+    ) {
+      event.preventDefault();
+    }
+  }
 );
 
-// ========================================
-// 簡易ゲーム描画
-// ========================================
-
-function drawGame() {
-  if (!canvas || !ctx) {
-    return;
+window.addEventListener(
+  "keyup",
+  event => {
+    keys[event.key.toLowerCase()] = false;
   }
+);
 
-  ctx.clearRect(
-    0,
-    0,
-    canvasWidth,
-    canvasHeight
-  );
+// ==========================================
+// タッチスティック
+// ==========================================
 
-  // 背景
-  ctx.fillStyle =
-    "#17251a";
+const stick = document.getElementById("stick");
+const stickKnob =
+  document.getElementById("stickKnob");
 
-  ctx.fillRect(
-    0,
-    0,
-    canvasWidth,
-    canvasHeight
-  );
+let stickActive = false;
+let stickX = 0;
+let stickY = 0;
 
-  // 草原
-  ctx.fillStyle =
-    "#2d6b32";
+if (stick) {
 
-  ctx.fillRect(
-    0,
-    canvasHeight * 0.45,
-    canvasWidth,
-    canvasHeight * 0.55
-  );
+  stick.addEventListener(
+    "touchstart",
+    event => {
+      event.preventDefault();
 
-  // プレイヤー
-  const px =
-    canvasWidth / 2;
+      stickActive = true;
 
-  const py =
-    canvasHeight / 2;
-
-  ctx.beginPath();
-
-  ctx.arc(
-    px,
-    py,
-    25,
-    0,
-    Math.PI * 2
-  );
-
-  ctx.fillStyle =
-    "#4da6ff";
-
-  ctx.fill();
-
-  ctx.strokeStyle =
-    "#ffffff";
-
-  ctx.lineWidth = 3;
-
-  ctx.stroke();
-
-  ctx.fillStyle =
-    "#ffffff";
-
-  ctx.font =
-    "bold 16px sans-serif";
-
-  ctx.textAlign =
-    "center";
-
-  ctx.fillText(
-    player.name,
-    px,
-    py - 35
-  );
-
-  // モンスター
-  if (currentEnemy) {
-    const ex =
-      canvasWidth * 0.72;
-
-    const ey =
-      canvasHeight * 0.48;
-
-    ctx.beginPath();
-
-    ctx.arc(
-      ex,
-      ey,
-      30,
-      0,
-      Math.PI * 2
-    );
-
-    ctx.fillStyle =
-      "#d84b4b";
-
-    ctx.fill();
-
-    ctx.strokeStyle =
-      "#ffffff";
-
-    ctx.stroke();
-
-    ctx.fillStyle =
-      "#ffffff";
-
-    ctx.font =
-      "bold 15px sans-serif";
-
-    ctx.fillText(
-      currentEnemy.name,
-      ex,
-      ey - 42
-    );
-
-    ctx.fillText(
-      `${currentEnemy.hp}/${currentEnemy.maxHp}`,
-      ex,
-      ey + 50
-    );
-  }
-
-  // オンラインプレイヤー
-  onlineState.players.forEach(
-    p => {
-      if (!p) {
-        return;
-      }
-
-      if (
-        p.id === currentPlayerId
-      ) {
-        return;
-      }
-
-      const x =
-        typeof p.x === "number"
-          ? p.x
-          : canvasWidth * 0.3;
-
-      const y =
-        typeof p.y === "number"
-          ? p.y
-          : canvasHeight * 0.5;
-
-      ctx.beginPath();
-
-      ctx.arc(
-        x,
-        y,
-        23,
-        0,
-        Math.PI * 2
+      updateStick(
+        event.touches[0]
       );
+    },
+    {
+      passive: false
+    }
+  );
 
-      ctx.fillStyle =
-        "#ffcc33";
+  stick.addEventListener(
+    "touchmove",
+    event => {
+      event.preventDefault();
 
-      ctx.fill();
+      if (!stickActive) return;
 
-      ctx.strokeStyle =
-        "#ffffff";
-
-      ctx.stroke();
-
-      ctx.fillStyle =
-        "#ffffff";
-
-      ctx.font =
-        "14px sans-serif";
-
-      ctx.fillText(
-        p.name || "名無し",
-        x,
-        y - 32
+      updateStick(
+        event.touches[0]
       );
+    },
+    {
+      passive: false
+    }
+  );
+
+  stick.addEventListener(
+    "touchend",
+    event => {
+      event.preventDefault();
+
+      stickActive = false;
+
+      stickX = 0;
+      stickY = 0;
+
+      if (stickKnob) {
+        stickKnob.style.transform =
+          "translate(-50%, -50%)";
+      }
+    },
+    {
+      passive: false
     }
   );
 }
 
-// ========================================
-// ジョイスティック
-// ========================================
-
-let joystickActive =
-  false;
-
-let joystickX = 0;
-let joystickY = 0;
-
-function resetJoystick() {
-  joystickX = 0;
-  joystickY = 0;
-
-  if (stickKnob) {
-    stickKnob.style.transform =
-      "translate(0px, 0px)";
-  }
-
-  sendInput();
-}
-
-function updateJoystick(
-  clientX,
-  clientY
-) {
-  if (!stick) {
-    return;
-  }
+function updateStick(touch) {
+  if (!stick) return;
 
   const rect =
     stick.getBoundingClientRect();
 
   const centerX =
-    rect.left +
-    rect.width / 2;
+    rect.left + rect.width / 2;
 
   const centerY =
-    rect.top +
-    rect.height / 2;
+    rect.top + rect.height / 2;
 
   let dx =
-    clientX - centerX;
+    touch.clientX - centerX;
 
   let dy =
-    clientY - centerY;
+    touch.clientY - centerY;
 
   const max =
-    Math.min(
-      rect.width,
-      rect.height
-    ) *
-    0.35;
+    rect.width * 0.35;
 
   const length =
-    Math.hypot(
-      dx,
-      dy
-    );
+    Math.sqrt(dx * dx + dy * dy);
 
   if (length > max) {
     dx =
@@ -1979,438 +1402,561 @@ function updateJoystick(
       dy / length * max;
   }
 
-  joystickX =
-    dx / max;
-
-  joystickY =
-    dy / max;
+  stickX = dx / max;
+  stickY = dy / max;
 
   if (stickKnob) {
     stickKnob.style.transform =
-      `translate(${dx}px, ${dy}px)`;
+      `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
   }
-
-  sendInput();
 }
 
-if (stick) {
-  stick.addEventListener(
-    "pointerdown",
-    event => {
-      event.preventDefault();
+// ==========================================
+// プレイヤー移動
+// ==========================================
 
-      joystickActive =
-        true;
+let lastMoveSend = 0;
 
-      stick.setPointerCapture(
-        event.pointerId
-      );
+function updatePlayerMovement() {
+  let dx = 0;
+  let dy = 0;
 
-      updateJoystick(
-        event.clientX,
-        event.clientY
-      );
-    }
+  if (
+    keys["arrowleft"] ||
+    keys["a"]
+  ) {
+    dx -= 1;
+  }
+
+  if (
+    keys["arrowright"] ||
+    keys["d"]
+  ) {
+    dx += 1;
+  }
+
+  if (
+    keys["arrowup"] ||
+    keys["w"]
+  ) {
+    dy -= 1;
+  }
+
+  if (
+    keys["arrowdown"] ||
+    keys["s"]
+  ) {
+    dy += 1;
+  }
+
+  if (stickActive) {
+    dx += stickX;
+    dy += stickY;
+  }
+
+  const length =
+    Math.sqrt(dx * dx + dy * dy);
+
+  if (length > 1) {
+    dx /= length;
+    dy /= length;
+  }
+
+  worldPlayer.x +=
+    dx * worldPlayer.speed;
+
+  worldPlayer.y +=
+    dy * worldPlayer.speed;
+
+  worldPlayer.x =
+    Math.max(
+      20,
+      Math.min(
+        world.width - 20,
+        worldPlayer.x
+      )
+    );
+
+  worldPlayer.y =
+    Math.max(
+      20,
+      Math.min(
+        world.height - 20,
+        worldPlayer.y
+      )
+    );
+
+  const now = Date.now();
+
+  if (
+    socket &&
+    currentRoomCode &&
+    now - lastMoveSend > 50
+  ) {
+    lastMoveSend = now;
+
+    socket.emit(
+      "movePlayer",
+      {
+        x: worldPlayer.x,
+        y: worldPlayer.y
+      }
+    );
+  }
+}
+
+// ==========================================
+// キャンバスサイズ
+// ==========================================
+
+function resizeCanvas() {
+  if (!canvas) return;
+
+  canvas.width =
+    window.innerWidth;
+
+  canvas.height =
+    window.innerHeight;
+}
+
+window.addEventListener(
+  "resize",
+  resizeCanvas
+);
+
+resizeCanvas();
+
+// ==========================================
+// 描画
+// ==========================================
+
+function drawGame() {
+  if (!ctx || !canvas) return;
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
   );
 
-  stick.addEventListener(
-    "pointermove",
-    event => {
-      if (!joystickActive) {
-        return;
+  const cameraX =
+    worldPlayer.x -
+    canvas.width / 2;
+
+  const cameraY =
+    worldPlayer.y -
+    canvas.height / 2;
+
+  // 背景
+  ctx.fillStyle = "#18251b";
+
+  ctx.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  // 地面
+  ctx.fillStyle = "#315b32";
+
+  ctx.fillRect(
+    -cameraX,
+    -cameraY,
+    world.width,
+    world.height
+  );
+
+  // オンラインプレイヤー
+  onlinePlayers.forEach(p => {
+
+    if (p.id === getSocketId()) {
+      return;
+    }
+
+    const x =
+      p.x - cameraX;
+
+    const y =
+      p.y - cameraY;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      18,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fillStyle =
+      "#4da6ff";
+
+    ctx.fill();
+
+    ctx.fillStyle =
+      "#ffffff";
+
+    ctx.textAlign =
+      "center";
+
+    ctx.font =
+      "14px sans-serif";
+
+    ctx.fillText(
+      p.name,
+      x,
+      y - 25
+    );
+
+    ctx.font =
+      "11px sans-serif";
+
+    ctx.fillText(
+      `❤️${p.hp}`,
+      x,
+      y + 32
+    );
+  });
+
+  // 自分
+  const px =
+    worldPlayer.x - cameraX;
+
+  const py =
+    worldPlayer.y - cameraY;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    px,
+    py,
+    20,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fillStyle =
+    "#ffd84d";
+
+  ctx.fill();
+
+  ctx.fillStyle =
+    "#000";
+
+  ctx.textAlign =
+    "center";
+
+  ctx.font =
+    "14px sans-serif";
+
+  ctx.fillText(
+    player.name,
+    px,
+    py - 28
+  );
+}
+
+// ==========================================
+// メインループ
+// ==========================================
+
+function gameLoop() {
+  updatePlayerMovement();
+  drawGame();
+
+  requestAnimationFrame(
+    gameLoop
+  );
+}
+
+// ==========================================
+// ボタン
+// ==========================================
+
+const startGameBtn =
+  document.getElementById(
+    "startGameBtn"
+  );
+
+if (startGameBtn) {
+  startGameBtn.addEventListener(
+    "click",
+    () => {
+
+      hideAllScreens();
+
+      if (gameScreen) {
+        gameScreen.style.display =
+          "block";
       }
 
-      updateJoystick(
-        event.clientX,
-        event.clientY
-      );
-    }
-  );
-
-  stick.addEventListener(
-    "pointerup",
-    () => {
-      joystickActive =
-        false;
-
-      resetJoystick();
-    }
-  );
-
-  stick.addEventListener(
-    "pointercancel",
-    () => {
-      joystickActive =
-        false;
-
-      resetJoystick();
+      updateUI();
     }
   );
 }
 
-// ========================================
-// キーボード
-// ========================================
+const onlineHomeBtn =
+  document.getElementById(
+    "onlineHomeBtn"
+  );
 
-const keys = {};
+const onlineBtn =
+  document.getElementById(
+    "onlineBtn"
+  );
 
-window.addEventListener(
-  "keydown",
-  event => {
-    keys[
-      event.key.toLowerCase()
-    ] = true;
-
-    if (
-      event.key === " "
-    ) {
-      event.preventDefault();
-
-      attackEnemy();
-    }
-
-    if (
-      event.key.toLowerCase() ===
-      "i"
-    ) {
-      showInventory();
-    }
-
-    sendInput();
-  }
-);
-
-window.addEventListener(
-  "keyup",
-  event => {
-    keys[
-      event.key.toLowerCase()
-    ] = false;
-
-    sendInput();
-  }
-);
-
-// ========================================
-// オンライン入力
-// ========================================
-
-function sendInput() {
-  if (
-    !socket.connected ||
-    !onlineState.inRoom
-  ) {
-    return;
-  }
-
-  const left =
-    joystickX < -0.1 ||
-    keys.a ||
-    keys.arrowleft;
-
-  const right =
-    joystickX > 0.1 ||
-    keys.d ||
-    keys.arrowright;
-
-  const up =
-    joystickY < -0.1 ||
-    keys.w ||
-    keys.arrowup;
-
-  const down =
-    joystickY > 0.1 ||
-    keys.s ||
-    keys.arrowdown;
-
-  socket.emit(
-    "input",
-    {
-      x:
-        right
-          ? 1
-          : left
-          ? -1
-          : 0,
-
-      y:
-        down
-          ? 1
-          : up
-          ? -1
-          : 0
-    }
+if (onlineHomeBtn) {
+  onlineHomeBtn.addEventListener(
+    "click",
+    showOnline
   );
 }
+
+if (onlineBtn) {
+  onlineBtn.addEventListener(
+    "click",
+    showOnline
+  );
+}
+
+const homeBtn =
+  document.getElementById(
+    "homeBtn"
+  );
+
+if (homeBtn) {
+  homeBtn.addEventListener(
+    "click",
+    showHome
+  );
+}
+
+const createRoomBtn =
+  document.getElementById(
+    "createRoomBtn"
+  );
+
+if (createRoomBtn) {
+  createRoomBtn.addEventListener(
+    "click",
+    createOnlineRoom
+  );
+}
+
+const joinRoomBtn =
+  document.getElementById(
+    "joinRoomBtn"
+  );
+
+if (joinRoomBtn) {
+  joinRoomBtn.addEventListener(
+    "click",
+    joinOnlineRoom
+  );
+}
+
+const backHomeBtn =
+  document.getElementById(
+    "backHomeBtn"
+  );
+
+if (backHomeBtn) {
+  backHomeBtn.addEventListener(
+    "click",
+    showHome
+  );
+}
+
+const leaveRoomBtn =
+  document.getElementById(
+    "leaveRoomBtn"
+  );
+
+if (leaveRoomBtn) {
+  leaveRoomBtn.addEventListener(
+    "click",
+    leaveOnlineRoom
+  );
+}
+
+const enterOnlineGameBtn =
+  document.getElementById(
+    "enterOnlineGameBtn"
+  );
+
+if (enterOnlineGameBtn) {
+  enterOnlineGameBtn.addEventListener(
+    "click",
+    enterOnlineGame
+  );
+}
+
+const inventoryBtn =
+  document.getElementById(
+    "inventoryBtn"
+  );
+
+if (inventoryBtn) {
+  inventoryBtn.addEventListener(
+    "click",
+    showInventory
+  );
+}
+
+const closeInventoryBtn =
+  document.getElementById(
+    "closeInventoryBtn"
+  );
+
+if (closeInventoryBtn) {
+  closeInventoryBtn.addEventListener(
+    "click",
+    showHome
+  );
+}
+
+const jobBtn =
+  document.getElementById(
+    "jobBtn"
+  );
+
+if (jobBtn) {
+  jobBtn.addEventListener(
+    "click",
+    showJob
+  );
+}
+
+const closeJobBtn =
+  document.getElementById(
+    "closeJobBtn"
+  );
+
+if (closeJobBtn) {
+  closeJobBtn.addEventListener(
+    "click",
+    showHome
+  );
+}
+
+const weaponBtn =
+  document.getElementById(
+    "weaponBtn"
+  );
+
+if (weaponBtn) {
+  weaponBtn.addEventListener(
+    "click",
+    showWeapon
+  );
+}
+
+const closeWeaponBtn =
+  document.getElementById(
+    "closeWeaponBtn"
+  );
+
+if (closeWeaponBtn) {
+  closeWeaponBtn.addEventListener(
+    "click",
+    showHome
+  );
+}
+
+const rankingBtn =
+  document.getElementById(
+    "rankingBtn"
+  );
+
+if (rankingBtn) {
+  rankingBtn.addEventListener(
+    "click",
+    showRanking
+  );
+}
+
+const closeRankingBtn =
+  document.getElementById(
+    "closeRankingBtn"
+  );
+
+if (closeRankingBtn) {
+  closeRankingBtn.addEventListener(
+    "click",
+    showHome
+  );
+}
+
+// ==========================================
+// ジョブボタン
+// ==========================================
+
+document
+  .querySelectorAll(
+    "[data-job]"
+  )
+  .forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+        changeJob(
+          button.dataset.job
+        );
+      }
+    );
+  });
+
+// ==========================================
+// 武器ボタン
+// ==========================================
+
+document
+  .querySelectorAll(
+    "[data-weapon]"
+  )
+  .forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+        changeWeapon(
+          button.dataset.weapon
+        );
+      }
+    );
+  });
+
+// ==========================================
+// 初期化
+// ==========================================
+
+loadGame();
+
+updateUI();
+
+worldPlayer.x = 400;
+worldPlayer.y = 300;
+
+showHome();
+
+gameLoop();
+
+// ==========================================
+// 定期同期
+// ==========================================
 
 setInterval(
-  sendInput,
-  60
-);
-
-// ========================================
-// ボタン設定
-// ========================================
-
-function setupButtons() {
-  // ホーム
-  document
-    .getElementById("homeBtn")
-    ?.addEventListener(
-      "click",
-      showHome
-    );
-
-  // インベントリ
-  document
-    .getElementById("inventoryBtn")
-    ?.addEventListener(
-      "click",
-      showInventory
-    );
-
-  // オンライン
-  document
-    .getElementById("onlineBtn")
-    ?.addEventListener(
-      "click",
-      showOnline
-    );
-
-  document
-    .getElementById("onlineHomeBtn")
-    ?.addEventListener(
-      "click",
-      showOnline
-    );
-
-  // ゲーム開始
-  document
-    .getElementById("startGameBtn")
-    ?.addEventListener(
-      "click",
-      startBattle
-    );
-
-  // ジョブ
-  document
-    .getElementById("jobBtn")
-    ?.addEventListener(
-      "click",
-      showJobs
-    );
-
-  document
-    .querySelectorAll(
-      "[data-job]"
-    )
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          changeJob(
-            button.dataset.job
-          );
-        }
-      );
-    });
-
-  document
-    .getElementById("closeJobBtn")
-    ?.addEventListener(
-      "click",
-      showHome
-    );
-
-  // 武器
-  document
-    .getElementById("weaponBtn")
-    ?.addEventListener(
-      "click",
-      showWeapons
-    );
-
-  document
-    .querySelectorAll(
-      "[data-weapon]"
-    )
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          changeWeapon(
-            button.dataset.weapon
-          );
-        }
-      );
-    });
-
-  document
-    .getElementById("closeWeaponBtn")
-    ?.addEventListener(
-      "click",
-      showHome
-    );
-
-  // ランキング
-  document
-    .getElementById("rankingBtn")
-    ?.addEventListener(
-      "click",
-      showRanking
-    );
-
-  document
-    .getElementById("closeRankingBtn")
-    ?.addEventListener(
-      "click",
-      showHome
-    );
-
-  // インベントリ閉じる
-  document
-    .getElementById("closeInventoryBtn")
-    ?.addEventListener(
-      "click",
-      showHome
-    );
-
-  // オンライン
-  document
-    .getElementById("createRoomBtn")
-    ?.addEventListener(
-      "click",
-      createRoom
-    );
-
-  document
-    .getElementById("joinRoomBtn")
-    ?.addEventListener(
-      "click",
-      joinRoom
-    );
-
-  document
-    .getElementById("backHomeBtn")
-    ?.addEventListener(
-      "click",
-      showHome
-    );
-
-  document
-    .getElementById("leaveRoomBtn")
-    ?.addEventListener(
-      "click",
-      leaveRoom
-    );
-
-  document
-    .getElementById("enterOnlineGameBtn")
-    ?.addEventListener(
-      "click",
-      enterOnlineGame
-    );
-
-  // チャット
-  if (chatSendBtn) {
-    chatSendBtn.addEventListener(
-      "click",
-      sendChatMessage
-    );
-  }
-
-  if (chatInput) {
-    chatInput.addEventListener(
-      "keydown",
-      event => {
-        if (
-          event.key === "Enter"
-        ) {
-          event.preventDefault();
-
-          sendChatMessage();
-        }
-      }
-    );
-  }
-}
-
-// ========================================
-// オンラインステータス
-// ========================================
-
-function setOnlineStatus(text) {
-  if (onlineStatus) {
-    onlineStatus.textContent =
-      text || "";
-  }
-}
-
-// ========================================
-// 初期化
-// ========================================
-
-document.addEventListener(
-  "DOMContentLoaded",
   () => {
-    setupButtons();
-
-    resizeCanvas();
-
-    // 最初はホーム
-    showHome();
-
-    updatePlayerUI();
-
-    drawGame();
-  }
+    if (
+      socket &&
+      currentRoomCode
+    ) {
+      sendPlayerUpdate();
+    }
+  },
+  500
 );
-
-// ========================================
-// 外部からも使えるようにする
-// ========================================
-
-window.showHome =
-  showHome;
-
-window.showOnline =
-  showOnline;
-
-window.showRoom =
-  showRoom;
-
-window.showInventory =
-  showInventory;
-
-window.showJobs =
-  showJobs;
-
-window.showWeapons =
-  showWeapons;
-
-window.showRanking =
-  showRanking;
-
-window.startBattle =
-  startBattle;
-
-window.attackEnemy =
-  attackEnemy;
-
-window.useSkill =
-  useSkill;
-
-window.healAtTown =
-  healAtTown;
-
-window.createRoom =
-  createRoom;
-
-window.joinRoom =
-  joinRoom;
-
-window.leaveRoom =
-  leaveRoom;
-
-window.sendChatMessage =
-  sendChatMessage;
