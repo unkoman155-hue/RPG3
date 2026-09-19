@@ -1,7 +1,7 @@
 const express = require("express");
 const http = require("http");
-const { Server } = require("socket.io");
 const path = require("path");
+const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
@@ -14,507 +14,1001 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, "public")));
 
-/* =========================
-   ルーム管理
-========================= */
+/* =========================================
+   静的ファイル
+========================================= */
+
+app.use(
+  express.static(
+    path.join(__dirname, "public")
+  )
+);
+
+
+/* =========================================
+   ルーム
+========================================= */
 
 const rooms = new Map();
 
-function makeRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-  let code = "";
+/*
+  rooms:
+
+  roomCode => {
+    players: Map
+  }
+*/
+
+
+/* =========================================
+   ルームコード生成
+========================================= */
+
+function generateRoomCode() {
+
+  let code;
 
   do {
-    code = "";
 
-    for (let i = 0; i < 6; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
+    code =
+      Math.floor(
+        100000 +
+        Math.random() * 900000
+      ).toString();
+
   } while (rooms.has(code));
 
   return code;
+
 }
 
-function createPlayer(socket, name) {
+
+/* =========================================
+   プレイヤー作成
+========================================= */
+
+function createServerPlayer(
+  socketId,
+  data = {}
+) {
+
   return {
-    id: socket.id,
 
-    name: name || "名無し",
-    job: "勇者",
+    id: socketId,
 
-    level: 1,
-    xp: 0,
+    name:
+      String(data.name || "プレイヤー")
+        .slice(0, 20),
 
-    maxHp: 30,
-    hp: 30,
+    job:
+      data.job || "勇者",
 
-    attack: 10,
+    level:
+      Number(data.level) || 1,
 
-    money: 250,
-    bounty: 0,
+    xp:
+      Number(data.xp) || 0,
 
-    weapon: "タガー",
-    skills: ["斬撃"],
+    maxHp:
+      Math.max(
+        1,
+        Number(data.maxHp) || 30
+      ),
 
-    defeats: 0,
+    hp:
+      Math.max(
+        0,
+        Number(data.hp) || 30
+      ),
 
-    townUnlocked: false,
-    townTrust: 0,
+    attack:
+      Math.max(
+        0,
+        Number(data.attack) || 10
+      ),
 
-    cityUnlocked: false,
-    cityTrust: 0,
+    money:
+      Math.max(
+        0,
+        Number(data.money) || 0
+      ),
 
-    x: 0,
-    y: 0,
+    bounty:
+      Math.max(
+        0,
+        Number(data.bounty) || 0
+      ),
 
-    online: true
+    weapon:
+      data.weapon || "タガー",
+
+    skills:
+      Array.isArray(data.skills)
+        ? data.skills.slice(0, 20)
+        : ["斬撃"],
+
+    defeats:
+      Math.max(
+        0,
+        Number(data.defeats) || 0
+      ),
+
+    x:
+      Number(data.x) || 0,
+
+    y:
+      Number(data.y) || 0
+
   };
+
 }
 
-function getRoomPlayers(room) {
-  return Array.from(room.players.values());
+
+/* =========================================
+   安全なプレイヤーデータ
+========================================= */
+
+function publicPlayer(player) {
+
+  if (!player) return null;
+
+  return {
+
+    id: player.id,
+
+    name: player.name,
+
+    job: player.job,
+
+    level: player.level,
+
+    xp: player.xp,
+
+    maxHp: player.maxHp,
+
+    hp: player.hp,
+
+    attack: player.attack,
+
+    money: player.money,
+
+    bounty: player.bounty,
+
+    weapon: player.weapon,
+
+    skills: player.skills,
+
+    defeats: player.defeats,
+
+    x: player.x,
+
+    y: player.y
+
+  };
+
 }
+
+
+/* =========================================
+   ルーム状態送信
+========================================= */
 
 function sendRoomState(roomCode) {
-  const room = rooms.get(roomCode);
+
+  const room =
+    rooms.get(roomCode);
 
   if (!room) return;
 
-  const players = getRoomPlayers(room);
+  const players =
+    Array.from(
+      room.players.values()
+    ).map(publicPlayer);
 
-  io.to(roomCode).emit("roomState", {
-    roomCode,
-    players
-  });
+  io.to(roomCode).emit(
+    "roomState",
+    {
+      roomCode,
+      players
+    }
+  );
+
 }
 
-/* =========================
-   接続
-========================= */
+
+/* =========================================
+   ルーム削除
+========================================= */
+
+function cleanupRoom(roomCode) {
+
+  const room =
+    rooms.get(roomCode);
+
+  if (!room) return;
+
+  if (room.players.size === 0) {
+
+    rooms.delete(roomCode);
+
+  }
+
+}
+
+
+/* =========================================
+   Socket.IO
+========================================= */
 
 io.on("connection", (socket) => {
-  console.log("接続:", socket.id);
 
-  /* =========================
+  console.log(
+    "接続:",
+    socket.id
+  );
+
+
+  /* =======================================
      ルーム作成
-  ========================= */
+  ======================================= */
 
-  socket.on("createRoom", (data) => {
-    const name =
-      data && typeof data.name === "string"
-        ? data.name.trim().slice(0, 20)
-        : "名無し";
+  socket.on(
+    "createRoom",
+    (data = {}) => {
 
-    const roomCode = makeRoomCode();
+      const roomCode =
+        generateRoomCode();
 
-    const room = {
-      code: roomCode,
-      players: new Map(),
-      createdAt: Date.now()
-    };
+      const player =
+        createServerPlayer(
+          socket.id,
+          data
+        );
 
-    const player = createPlayer(socket, name);
+      const room = {
 
-    room.players.set(socket.id, player);
+        players:
+          new Map()
 
-    rooms.set(roomCode, room);
+      };
 
-    socket.join(roomCode);
+      room.players.set(
+        socket.id,
+        player
+      );
 
-    socket.roomCode = roomCode;
+      rooms.set(
+        roomCode,
+        room
+      );
 
-    socket.emit("roomCreated", {
-      roomCode,
-      player
-    });
+      socket.join(
+        roomCode
+      );
 
-    sendRoomState(roomCode);
+      socket.data.roomCode =
+        roomCode;
 
-    console.log(
-      `ルーム作成: ${roomCode} / ${player.name}`
-    );
-  });
+      socket.data.playerId =
+        socket.id;
 
-  /* =========================
-     ルーム参加
-  ========================= */
 
-  socket.on("joinRoom", (data) => {
-    const roomCode =
-      data && typeof data.roomCode === "string"
-        ? data.roomCode.trim().toUpperCase()
-        : "";
-
-    const name =
-      data && typeof data.name === "string"
-        ? data.name.trim().slice(0, 20)
-        : "名無し";
-
-    if (!roomCode) {
-      socket.emit("onlineError", "ルームコードを入力してください。");
-      return;
-    }
-
-    const room = rooms.get(roomCode);
-
-    if (!room) {
       socket.emit(
-        "onlineError",
-        "そのルームは存在しません。"
+        "roomCreated",
+        {
+          roomCode,
+          player:
+            publicPlayer(player)
+        }
       );
-      return;
-    }
 
-    if (room.players.size >= 20) {
-      socket.emit(
-        "onlineError",
-        "このルームは満員です。"
+
+      sendRoomState(
+        roomCode
       );
-      return;
-    }
 
-    const player = createPlayer(socket, name);
-
-    room.players.set(socket.id, player);
-
-    socket.join(roomCode);
-
-    socket.roomCode = roomCode;
-
-    socket.emit("roomJoined", {
-      roomCode,
-      player
-    });
-
-    sendRoomState(roomCode);
-
-    console.log(
-      `ルーム参加: ${roomCode} / ${player.name}`
-    );
-  });
-
-  /* =========================
-     プレイヤー情報更新
-  ========================= */
-
-  socket.on("updatePlayer", (data) => {
-    const roomCode = socket.roomCode;
-
-    if (!roomCode) return;
-
-    const room = rooms.get(roomCode);
-
-    if (!room) return;
-
-    const player = room.players.get(socket.id);
-
-    if (!player) return;
-
-    if (!data || typeof data !== "object") {
-      return;
-    }
-
-    /*
-      クライアントから送られてきた
-      プレイヤー情報を更新する。
-
-      最大値などはサーバー側でも制限する。
-    */
-
-    if (typeof data.name === "string") {
-      player.name = data.name
-        .trim()
-        .slice(0, 20) || "名無し";
-    }
-
-    if (typeof data.job === "string") {
-      player.job = data.job.slice(0, 20);
-    }
-
-    if (Number.isFinite(data.level)) {
-      player.level = Math.max(
-        1,
-        Math.min(999, Math.floor(data.level))
-      );
-    }
-
-    if (Number.isFinite(data.xp)) {
-      player.xp = Math.max(
-        0,
-        Math.floor(data.xp)
-      );
-    }
-
-    if (Number.isFinite(data.maxHp)) {
-      player.maxHp = Math.max(
-        1,
-        Math.min(99999, Math.floor(data.maxHp))
-      );
-    }
-
-    if (Number.isFinite(data.hp)) {
-      player.hp = Math.max(
-        0,
-        Math.min(player.maxHp, Math.floor(data.hp))
-      );
-    }
-
-    if (Number.isFinite(data.attack)) {
-      player.attack = Math.max(
-        1,
-        Math.min(99999, Math.floor(data.attack))
-      );
-    }
-
-    if (Number.isFinite(data.money)) {
-      player.money = Math.max(
-        0,
-        Math.min(999999999, Math.floor(data.money))
-      );
-    }
-
-    if (Number.isFinite(data.bounty)) {
-      player.bounty = Math.max(
-        0,
-        Math.min(999999999, Math.floor(data.bounty))
-      );
-    }
-
-    if (typeof data.weapon === "string") {
-      player.weapon = data.weapon.slice(0, 30);
-    }
-
-    if (Array.isArray(data.skills)) {
-      player.skills = data.skills
-        .filter(v => typeof v === "string")
-        .slice(0, 20);
-    }
-
-    if (Number.isFinite(data.defeats)) {
-      player.defeats = Math.max(
-        0,
-        Math.min(999999, Math.floor(data.defeats))
-      );
-    }
-
-    if (Number.isFinite(data.x)) {
-      player.x = Math.max(
-        -100000,
-        Math.min(100000, data.x)
-      );
-    }
-
-    if (Number.isFinite(data.y)) {
-      player.y = Math.max(
-        -100000,
-        Math.min(100000, data.y)
-      );
-    }
-
-    sendRoomState(roomCode);
-  });
-
-  /* =========================
-     移動
-  ========================= */
-
-  socket.on("move", (data) => {
-    const roomCode = socket.roomCode;
-
-    if (!roomCode) return;
-
-    const room = rooms.get(roomCode);
-
-    if (!room) return;
-
-    const player = room.players.get(socket.id);
-
-    if (!player) return;
-
-    if (!data || typeof data !== "object") {
-      return;
-    }
-
-    if (Number.isFinite(data.x)) {
-      player.x = Math.max(
-        -100000,
-        Math.min(100000, data.x)
-      );
-    }
-
-    if (Number.isFinite(data.y)) {
-      player.y = Math.max(
-        -100000,
-        Math.min(100000, data.y)
-      );
-    }
-
-    socket.to(roomCode).emit("playerMoved", {
-      id: player.id,
-      x: player.x,
-      y: player.y
-    });
-  });
-
-  /* =========================
-     PvP攻撃
-  ========================= */
-
-  socket.on("attackPlayer", (targetId) => {
-    const roomCode = socket.roomCode;
-
-    if (!roomCode) return;
-
-    const room = rooms.get(roomCode);
-
-    if (!room) return;
-
-    const attacker = room.players.get(socket.id);
-    const target = room.players.get(targetId);
-
-    if (!attacker || !target) return;
-
-    if (attacker.id === target.id) return;
-
-    const dx = attacker.x - target.x;
-    const dy = attacker.y - target.y;
-
-    const distance = Math.sqrt(
-      dx * dx + dy * dy
-    );
-
-    const ATTACK_RANGE = 180;
-
-    if (distance > ATTACK_RANGE) {
-      socket.emit(
-        "onlineError",
-        "相手が遠すぎます。"
-      );
-      return;
-    }
-
-    let damage = attacker.attack;
-
-    if (attacker.weapon === "タガー") {
-      damage += 15;
-    }
-
-    if (attacker.weapon === "剣") {
-      damage += 5;
-    }
-
-    if (attacker.weapon === "強化剣") {
-      damage += 25;
-    }
-
-    if (Math.random() < 0.15) {
-      damage += 5;
-    }
-
-    damage = Math.max(
-      1,
-      Math.floor(damage)
-    );
-
-    target.hp -= damage;
-
-    if (target.hp < 0) {
-      target.hp = 0;
-    }
-
-    io.to(roomCode).emit("playerDamaged", {
-      attackerId: attacker.id,
-      targetId: target.id,
-      damage,
-      hp: target.hp,
-      maxHp: target.maxHp
-    });
-
-    /* =========================
-       撃破
-    ========================= */
-
-    if (target.hp <= 0) {
-      attacker.defeats += 1;
-      attacker.bounty += 50;
-
-      target.hp = target.maxHp;
-
-      io.to(roomCode).emit("playerDefeated", {
-        attackerId: attacker.id,
-        targetId: target.id,
-        attackerName: attacker.name,
-        targetName: target.name,
-        bounty: attacker.bounty
-      });
-    }
-
-    sendRoomState(roomCode);
-  });
-
-  /* =========================
-     プレイヤー一覧要求
-  ========================= */
-
-  socket.on("requestPlayers", () => {
-    const roomCode = socket.roomCode;
-
-    if (!roomCode) return;
-
-    const room = rooms.get(roomCode);
-
-    if (!room) return;
-
-    socket.emit("roomState", {
-      roomCode,
-      players: getRoomPlayers(room)
-    });
-  });
-
-  /* =========================
-     切断
-  ========================= */
-
-  socket.on("disconnect", () => {
-    console.log("切断:", socket.id);
-
-    const roomCode = socket.roomCode;
-
-    if (!roomCode) return;
-
-    const room = rooms.get(roomCode);
-
-    if (!room) return;
-
-    room.players.delete(socket.id);
-
-    if (room.players.size === 0) {
-      rooms.delete(roomCode);
 
       console.log(
-        `ルーム削除: ${roomCode}`
+        `ルーム作成: ${roomCode} / ${player.name}`
       );
 
-      return;
     }
+  );
 
-    sendRoomState(roomCode);
-  });
+
+  /* =======================================
+     ルーム参加
+  ======================================= */
+
+  socket.on(
+    "joinRoom",
+    (data = {}) => {
+
+      const roomCode =
+        String(
+          data.roomCode || ""
+        )
+        .trim()
+        .toUpperCase();
+
+      const room =
+        rooms.get(roomCode);
+
+
+      if (!room) {
+
+        socket.emit(
+          "onlineError",
+          "そのルームは存在しません。"
+        );
+
+        return;
+
+      }
+
+
+      const player =
+        createServerPlayer(
+          socket.id,
+          data
+        );
+
+
+      room.players.set(
+        socket.id,
+        player
+      );
+
+
+      socket.join(
+        roomCode
+      );
+
+      socket.data.roomCode =
+        roomCode;
+
+      socket.data.playerId =
+        socket.id;
+
+
+      socket.emit(
+        "roomJoined",
+        {
+          roomCode,
+          player:
+            publicPlayer(player)
+        }
+      );
+
+
+      sendRoomState(
+        roomCode
+      );
+
+
+      console.log(
+        `ルーム参加: ${roomCode} / ${player.name}`
+      );
+
+    }
+  );
+
+
+  /* =======================================
+     プレイヤー情報更新
+  ======================================= */
+
+  socket.on(
+    "updatePlayer",
+    (data = {}) => {
+
+      const roomCode =
+        socket.data.roomCode;
+
+      if (!roomCode) return;
+
+      const room =
+        rooms.get(roomCode);
+
+      if (!room) return;
+
+      const player =
+        room.players.get(
+          socket.id
+        );
+
+      if (!player) return;
+
+
+      /*
+        クライアントから送られた
+        プレイヤーデータを更新
+      */
+
+      if (
+        typeof data.name === "string"
+      ) {
+
+        player.name =
+          data.name
+            .slice(0, 20);
+
+      }
+
+
+      if (
+        typeof data.job === "string"
+      ) {
+
+        player.job =
+          data.job
+            .slice(0, 20);
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.level)
+        )
+      ) {
+
+        player.level =
+          Math.max(
+            1,
+            Number(data.level)
+          );
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.xp)
+        )
+      ) {
+
+        player.xp =
+          Math.max(
+            0,
+            Number(data.xp)
+          );
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.maxHp)
+        )
+      ) {
+
+        player.maxHp =
+          Math.max(
+            1,
+            Number(data.maxHp)
+          );
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.hp)
+        )
+      ) {
+
+        player.hp =
+          Math.max(
+            0,
+            Math.min(
+              player.maxHp,
+              Number(data.hp)
+            )
+          );
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.attack)
+        )
+      ) {
+
+        player.attack =
+          Math.max(
+            0,
+            Number(data.attack)
+          );
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.money)
+        )
+      ) {
+
+        player.money =
+          Math.max(
+            0,
+            Number(data.money)
+          );
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.bounty)
+        )
+      ) {
+
+        player.bounty =
+          Math.max(
+            0,
+            Number(data.bounty)
+          );
+
+      }
+
+
+      if (
+        typeof data.weapon === "string"
+      ) {
+
+        player.weapon =
+          data.weapon
+            .slice(0, 20);
+
+      }
+
+
+      if (
+        Array.isArray(data.skills)
+      ) {
+
+        player.skills =
+          data.skills
+            .slice(0, 20);
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.defeats)
+        )
+      ) {
+
+        player.defeats =
+          Math.max(
+            0,
+            Number(data.defeats)
+          );
+
+      }
+
+
+      let moved = false;
+
+
+      if (
+        Number.isFinite(
+          Number(data.x)
+        )
+      ) {
+
+        const newX =
+          Number(data.x);
+
+        if (
+          newX !== player.x
+        ) {
+
+          player.x =
+            newX;
+
+          moved = true;
+
+        }
+
+      }
+
+
+      if (
+        Number.isFinite(
+          Number(data.y)
+        )
+      ) {
+
+        const newY =
+          Number(data.y);
+
+        if (
+          newY !== player.y
+        ) {
+
+          player.y =
+            newY;
+
+          moved = true;
+
+        }
+
+      }
+
+
+      if (moved) {
+
+        socket.to(roomCode).emit(
+          "playerMoved",
+          {
+            id: player.id,
+            x: player.x,
+            y: player.y
+          }
+        );
+
+      }
+
+
+      sendRoomState(
+        roomCode
+      );
+
+    }
+  );
+
+
+  /* =======================================
+     プレイヤー一覧要求
+  ======================================= */
+
+  socket.on(
+    "requestPlayers",
+    () => {
+
+      const roomCode =
+        socket.data.roomCode;
+
+      if (!roomCode) return;
+
+      sendRoomState(
+        roomCode
+      );
+
+    }
+  );
+
+
+  /* =======================================
+     PvP攻撃
+  ======================================= */
+
+  socket.on(
+    "attackPlayer",
+    (targetId) => {
+
+      const roomCode =
+        socket.data.roomCode;
+
+      if (!roomCode) return;
+
+
+      const room =
+        rooms.get(roomCode);
+
+      if (!room) return;
+
+
+      const attacker =
+        room.players.get(
+          socket.id
+        );
+
+      const target =
+        room.players.get(
+          targetId
+        );
+
+
+      if (!attacker) return;
+
+      if (!target) {
+
+        socket.emit(
+          "onlineError",
+          "対象プレイヤーが見つかりません。"
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attacker.id ===
+        target.id
+      ) {
+
+        socket.emit(
+          "onlineError",
+          "自分自身は攻撃できません。"
+        );
+
+        return;
+
+      }
+
+
+      if (target.hp <= 0) {
+
+        socket.emit(
+          "onlineError",
+          "そのプレイヤーは倒れています。"
+        );
+
+        return;
+
+      }
+
+
+      /*
+        PvPダメージ
+
+        攻撃力
+        +
+        武器補正
+        +
+        クリティカル
+      */
+
+      const weaponBonus = {
+
+        "タガー": 15,
+
+        "剣": 5,
+
+        "強化剣": 25
+
+      };
+
+
+      let damage =
+        Math.max(
+          1,
+          Number(attacker.attack) || 0
+        );
+
+
+      damage +=
+        Number(
+          weaponBonus[
+            attacker.weapon
+          ] || 0
+        );
+
+
+      let critical = false;
+
+
+      if (
+        Math.random() < 0.15
+      ) {
+
+        damage += 5;
+
+        critical = true;
+
+      }
+
+
+      damage =
+        Math.max(
+          1,
+          Math.floor(damage)
+        );
+
+
+      target.hp =
+        Math.max(
+          0,
+          target.hp - damage
+        );
+
+
+      /*
+        攻撃した本人へ通知
+      */
+
+      socket.emit(
+        "playerDamaged",
+        {
+
+          attackerId:
+            attacker.id,
+
+          attackerName:
+            attacker.name,
+
+          targetId:
+            target.id,
+
+          targetName:
+            target.name,
+
+          damage,
+
+          hp:
+            target.hp,
+
+          critical
+
+        }
+      );
+
+
+      /*
+        攻撃された側へ通知
+      */
+
+      io.to(target.id).emit(
+        "playerDamaged",
+        {
+
+          attackerId:
+            attacker.id,
+
+          attackerName:
+            attacker.name,
+
+          targetId:
+            target.id,
+
+          targetName:
+            target.name,
+
+          damage,
+
+          hp:
+            target.hp,
+
+          critical
+
+        }
+      );
+
+
+      /*
+        全員に撃破通知
+      */
+
+      if (target.hp <= 0) {
+
+        attacker.defeats += 1;
+
+        attacker.bounty += 50;
+
+
+        io.to(roomCode).emit(
+          "playerDefeated",
+          {
+
+            attackerId:
+              attacker.id,
+
+            attackerName:
+              attacker.name,
+
+            targetId:
+              target.id,
+
+            targetName:
+              target.name
+
+          }
+        );
+
+
+        /*
+          倒されたプレイヤーは
+          サーバー側ではHP全回復
+        */
+
+        target.hp =
+          target.maxHp;
+
+      }
+
+
+      sendRoomState(
+        roomCode
+      );
+
+    }
+  );
+
+
+  /* =======================================
+     切断
+  ======================================= */
+
+  socket.on(
+    "disconnect",
+    () => {
+
+      const roomCode =
+        socket.data.roomCode;
+
+      if (!roomCode) {
+
+        console.log(
+          "切断:",
+          socket.id
+        );
+
+        return;
+
+      }
+
+
+      const room =
+        rooms.get(roomCode);
+
+      if (!room) return;
+
+
+      const player =
+        room.players.get(
+          socket.id
+        );
+
+
+      room.players.delete(
+        socket.id
+      );
+
+
+      console.log(
+        `プレイヤー退出: ${
+          player
+            ? player.name
+            : socket.id
+        } / ${roomCode}`
+      );
+
+
+      sendRoomState(
+        roomCode
+      );
+
+
+      cleanupRoom(
+        roomCode
+      );
+
+    }
+  );
+
 });
 
-/* =========================
+
+/* =========================================
    サーバー起動
-========================= */
+========================================= */
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `勇者の懸賞金RPG ONLINE SERVER`
-  );
+server.listen(
+  PORT,
+  () => {
 
-  console.log(
-    `PORT: ${PORT}`
-  );
-});
+    console.log(
+      `NEON EATER / 勇者の懸賞金RPG サーバー起動: ${PORT}`
+    );
+
+  }
+);
