@@ -2,36 +2,177 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>勇者の懸賞金RPG</title>
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+>
+
+<title>⚔️ 勇者の懸賞金RPG ONLINE</title>
+
 <link rel="stylesheet" href="style.css">
+
+<!-- Socket.IO -->
+<script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
 
 <div id="app">
 
+  <!-- =========================
+       ヘッダー
+  ========================== -->
+
   <header>
-    <h1>⚔️ 勇者の懸賞金RPG</h1>
-    <div id="status"></div>
+    <h1>⚔️ 勇者の懸賞金RPG ONLINE</h1>
+    <div id="status">オフライン</div>
   </header>
 
+
+  <!-- =========================
+       メイン画面
+  ========================== -->
+
   <main>
+
     <section id="screen" class="panel"></section>
+
     <section id="log" class="panel log"></section>
+
   </main>
 
+
+  <!-- =========================
+       メインメニュー
+  ========================== -->
+
   <nav id="mainNav" class="nav">
-    <button onclick="showHome()">🏠 ホーム</button>
-    <button onclick="showBattle()">⚔️ 戦う</button>
-    <button onclick="showTown()">🏘️ 町</button>
-    <button onclick="showCity()">🏙️ 都市</button>
-    <button onclick="showGacha()">🎰 ガチャ</button>
-    <button onclick="showBag()">🎒 バック</button>
-    <button onclick="showSettings()">⚙️ 設定</button>
+
+    <button onclick="showHome()">
+      🏠 ホーム
+    </button>
+
+    <button onclick="showBattle()">
+      ⚔️ 戦う
+    </button>
+
+    <button onclick="showTown()">
+      🏘️ 町
+    </button>
+
+    <button onclick="showCity()">
+      🏙️ 都市
+    </button>
+
+    <button onclick="showGacha()">
+      🎰 ガチャ
+    </button>
+
+    <button onclick="showBag()">
+      🎒 バック
+    </button>
+
+    <button onclick="showSettings()">
+      ⚙️ 設定
+    </button>
+
   </nav>
 
 </div>
+
+
+<!-- =========================
+     オンライン接続画面
+========================== -->
+
+<div id="onlineOverlay" class="online-overlay">
+
+  <div class="online-box">
+
+    <h2>🌐 オンライン</h2>
+
+    <p id="onlineMessage">
+      接続しています……
+    </p>
+
+    <!-- 名前 -->
+    <input
+      id="onlineName"
+      type="text"
+      maxlength="20"
+      placeholder="プレイヤー名"
+    >
+
+    <br><br>
+
+    <!-- ルーム作成 -->
+    <button onclick="createOnlineRoom()">
+      🏠 ルームを作る
+    </button>
+
+    <br>
+
+    <!-- ルーム参加 -->
+    <input
+      id="roomCodeInput"
+      type="text"
+      maxlength="6"
+      placeholder="ルームコード"
+      autocomplete="off"
+    >
+
+    <button onclick="joinOnlineRoom()">
+      🚪 ルームに参加
+    </button>
+
+    <p id="onlineError"></p>
+
+  </div>
+
+</div>
+
+
+<!-- =========================
+     オンラインプレイヤー表示
+========================== -->
+
+<div id="onlinePlayers" class="online-players">
+
+  <div class="online-players-title">
+    👥 オンラインプレイヤー
+  </div>
+
+  <div id="playerList">
+    まだプレイヤーはいません。
+  </div>
+
+</div>
+
+
+<!-- =========================
+     ルーム情報
+========================== -->
+
+<div id="roomInfo" class="room-info">
+
+  <span>
+    🔑 ルーム：
+  </span>
+
+  <strong id="roomCodeDisplay">
+    ---
+  </strong>
+
+</div>
+
+
+<!-- =========================
+     他プレイヤー情報
+========================== -->
+
+<div id="remotePlayers"></div>
+
 
 <script src="game.js"></script>
 
