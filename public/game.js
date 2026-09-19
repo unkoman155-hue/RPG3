@@ -1,4 +1,4 @@
-const SAVE_KEY = "yuusha_bounty_rpg_online_v3";
+const SAVE_KEY = "yuusha_bounty_rpg_online_v4";
 
 /* =========================================
    Socket.IO
@@ -146,21 +146,9 @@ function getWeaponBonus() {
 }
 
 
-/*
-  通常攻撃・スキル攻撃の共通ダメージ計算
-
-  通常攻撃：
-  攻撃力 + 武器補正
-
-  スキル攻撃：
-  スキル威力 + 攻撃力 + 武器補正
-
-  その後、
-  クリティカル +5
-  タガー出血 +5
-
-  最低ダメージは1
-*/
+/* =========================================
+   ダメージ計算
+========================================= */
 
 function calculateAttackDamage(skillPower = 0) {
 
@@ -183,7 +171,6 @@ function calculateAttackDamage(skillPower = 0) {
     attack +
     power +
     weaponBonus;
-
 
   let critical = false;
   let bleed = false;
@@ -231,7 +218,7 @@ function calculateAttackDamage(skillPower = 0) {
 
 
 /* =========================================
-   敵
+   モンスター
 ========================================= */
 
 const ENEMIES = [
@@ -240,7 +227,7 @@ const ENEMIES = [
     name: "怪物猫",
     minLevel: 1,
     maxLevel: 5,
-    hp: 20,
+    hp: 50,
     attack: 6,
     xp: 25,
     money: 20,
@@ -250,8 +237,8 @@ const ENEMIES = [
   {
     name: "スライム",
     minLevel: 1,
-    maxLevel: 5,
-    hp: 25,
+    maxLevel: 6,
+    hp: 60,
     attack: 7,
     xp: 30,
     money: 25,
@@ -262,7 +249,7 @@ const ENEMIES = [
     name: "ゴブリン",
     minLevel: 2,
     maxLevel: 8,
-    hp: 35,
+    hp: 80,
     attack: 10,
     xp: 45,
     money: 40,
@@ -273,7 +260,7 @@ const ENEMIES = [
     name: "オオカミ",
     minLevel: 3,
     maxLevel: 10,
-    hp: 45,
+    hp: 100,
     attack: 13,
     xp: 60,
     money: 55,
@@ -281,25 +268,102 @@ const ENEMIES = [
   },
 
   {
-    name: "闇の騎士",
-    minLevel: 5,
-    maxLevel: 20,
-    hp: 80,
-    attack: 20,
+    name: "スケルトン",
+    minLevel: 4,
+    maxLevel: 12,
+    hp: 120,
+    attack: 15,
+    xp: 75,
+    money: 70,
+    area: "遺跡"
+  },
+
+  {
+    name: "オーク",
+    minLevel: 6,
+    maxLevel: 15,
+    hp: 150,
+    attack: 18,
     xp: 100,
-    money: 100,
+    money: 90,
+    area: "山道"
+  },
+
+  {
+    name: "闇の騎士",
+    minLevel: 7,
+    maxLevel: 20,
+    hp: 180,
+    attack: 20,
+    xp: 130,
+    money: 120,
     area: "都市周辺"
+  },
+
+  {
+    name: "吸血鬼",
+    minLevel: 10,
+    maxLevel: 25,
+    hp: 220,
+    attack: 25,
+    xp: 180,
+    money: 180,
+    area: "都市周辺"
+  },
+
+  {
+    name: "魔法使い",
+    minLevel: 12,
+    maxLevel: 30,
+    hp: 250,
+    attack: 30,
+    xp: 220,
+    money: 230,
+    area: "魔境"
+  },
+
+  {
+    name: "ドラゴン",
+    minLevel: 15,
+    maxLevel: 35,
+    hp: 300,
+    attack: 35,
+    xp: 350,
+    money: 400,
+    area: "魔境"
+  },
+
+  {
+    name: "魔王",
+    minLevel: 20,
+    maxLevel: 50,
+    hp: 400,
+    attack: 40,
+    xp: 500,
+    money: 600,
+    area: "魔王城"
   }
 
 ];
 
 
+/* =========================================
+   ボス
+========================================= */
+
 const BOSS = {
+
   name: "懸賞金王",
+
+  /* ボスは500HPのまま */
   hp: 500,
+
   attack: 45,
+
   xp: 1000,
+
   money: 1000
+
 };
 
 
@@ -315,7 +379,9 @@ let battleActive = false;
 ========================================= */
 
 function $(id) {
+
   return document.getElementById(id);
+
 }
 
 
@@ -334,7 +400,9 @@ function escapeHtml(text) {
 function clearScreen() {
 
   if ($("screen")) {
+
     $("screen").innerHTML = "";
+
   }
 
 }
@@ -343,7 +411,9 @@ function clearScreen() {
 function showScreen(html) {
 
   if ($("screen")) {
+
     $("screen").innerHTML = html;
+
   }
 
 }
@@ -378,7 +448,9 @@ function writeLog(message) {
 function clearLog() {
 
   if ($("log")) {
+
     $("log").innerHTML = "";
+
   }
 
 }
@@ -448,28 +520,43 @@ function loadGame() {
       localStorage.getItem(SAVE_KEY);
 
     if (!data) {
+
       return false;
+
     }
 
     const saved =
       JSON.parse(data);
 
     player = {
+
       ...player,
+
       ...saved
+
     };
 
+
     if (!player.inventory) {
+
       player.inventory = {};
+
     }
+
 
     if (!player.skills) {
+
       player.skills = [];
+
     }
 
+
     if (!player.encyclopedia) {
+
       player.encyclopedia = {};
+
     }
+
 
     return true;
 
@@ -531,8 +618,11 @@ function resetPlayer() {
 
   };
 
+
   currentEnemy = null;
+
   currentEnemyHp = 0;
+
   battleActive = false;
 
 }
@@ -567,6 +657,7 @@ function connectOnline() {
 
   }
 
+
   socket = io();
 
 
@@ -584,11 +675,14 @@ function connectOnline() {
 
     }
 
+
     const error =
       $("onlineError");
 
     if (error) {
+
       error.textContent = "";
+
     }
 
   });
@@ -680,6 +774,7 @@ function connectOnline() {
 
     onlinePlayers = {};
 
+
     if (Array.isArray(data.players)) {
 
       for (const p of data.players) {
@@ -690,6 +785,7 @@ function connectOnline() {
       }
 
     }
+
 
     updatePlayerList();
 
@@ -703,14 +799,18 @@ function connectOnline() {
     if (!data) return;
 
     if (!onlinePlayers[data.id]) {
+
       return;
+
     }
+
 
     onlinePlayers[data.id].x =
       data.x;
 
     onlinePlayers[data.id].y =
       data.y;
+
 
     renderOnlinePlayers();
 
@@ -721,12 +821,14 @@ function connectOnline() {
 
     if (!data) return;
 
+
     if (onlinePlayers[data.targetId]) {
 
       onlinePlayers[data.targetId].hp =
         data.hp;
 
     }
+
 
     if (
       socket &&
@@ -739,11 +841,14 @@ function connectOnline() {
           Number(data.hp) || 0
         );
 
+
       addBattleMessage(
         `⚔️ ${data.damage}ダメージを受けた！`
       );
 
+
       updateStatus();
+
 
       localStorage.setItem(
         SAVE_KEY,
@@ -751,6 +856,7 @@ function connectOnline() {
       );
 
     }
+
 
     renderOnlinePlayers();
 
@@ -761,10 +867,12 @@ function connectOnline() {
 
     if (!data) return;
 
+
     addBattleMessage(
       `💥 ${data.attackerName} が ` +
       `${data.targetName} を倒した！`
     );
+
 
     if (
       socket &&
@@ -775,18 +883,22 @@ function connectOnline() {
 
       player.bounty += 50;
 
+
       addBattleMessage(
         "🏆 撃破報酬！懸賞金 +50"
       );
+
 
       localStorage.setItem(
         SAVE_KEY,
         JSON.stringify(player)
       );
 
+
       updateStatus();
 
     }
+
 
     if (
       socket &&
@@ -796,14 +908,17 @@ function connectOnline() {
       player.hp =
         player.maxHp;
 
+
       addBattleMessage(
         "💀 倒された！HPが全回復しました。"
       );
+
 
       localStorage.setItem(
         SAVE_KEY,
         JSON.stringify(player)
       );
+
 
       updateStatus();
 
@@ -825,10 +940,13 @@ function showOnlineMenu() {
 
   if (!overlay) return;
 
+
   overlay.classList.remove("hidden");
+
 
   const name =
     $("onlineName");
+
 
   if (name) {
 
@@ -837,34 +955,50 @@ function showOnlineMenu() {
 
   }
 
+
   const error =
     $("onlineError");
 
+
   if (error) {
+
     error.textContent = "";
+
   }
+
 
   const roomInfo =
     $("roomInfo");
 
+
   const players =
     $("onlinePlayers");
+
 
   const close =
     $("closeOnlineButton");
 
+
   if (!roomCode) {
 
     if (roomInfo) {
+
       roomInfo.classList.add("hidden");
+
     }
+
 
     if (players) {
+
       players.classList.add("hidden");
+
     }
 
+
     if (close) {
+
       close.classList.add("hidden");
+
     }
 
   }
@@ -878,6 +1012,7 @@ function closeOnlineOverlay() {
     $("onlineOverlay");
 
   if (!overlay) return;
+
 
   overlay.classList.add("hidden");
 
@@ -899,10 +1034,12 @@ function createOnlineRoom() {
 
   }
 
+
   const name =
     $("onlineName")
       .value
       .trim();
+
 
   if (!name) {
 
@@ -913,8 +1050,10 @@ function createOnlineRoom() {
 
   }
 
+
   player.name =
     name;
+
 
   socket.emit(
     "createRoom",
@@ -937,16 +1076,19 @@ function joinOnlineRoom() {
 
   }
 
+
   const name =
     $("onlineName")
       .value
       .trim();
+
 
   const code =
     $("roomCodeInput")
       .value
       .trim()
       .toUpperCase();
+
 
   if (!name) {
 
@@ -957,6 +1099,7 @@ function joinOnlineRoom() {
 
   }
 
+
   if (!code) {
 
     $("onlineError").textContent =
@@ -966,8 +1109,10 @@ function joinOnlineRoom() {
 
   }
 
+
   player.name =
     name;
+
 
   socket.emit(
     "joinRoom",
@@ -983,22 +1128,31 @@ function joinOnlineRoom() {
 function showOnlineRoom() {
 
   if ($("roomInfo")) {
+
     $("roomInfo")
       .classList
       .remove("hidden");
+
   }
 
+
   if ($("onlinePlayers")) {
+
     $("onlinePlayers")
       .classList
       .remove("hidden");
+
   }
 
+
   if ($("closeOnlineButton")) {
+
     $("closeOnlineButton")
       .classList
       .remove("hidden");
+
   }
+
 
   if ($("roomCodeDisplay")) {
 
@@ -1008,6 +1162,7 @@ function showOnlineRoom() {
 
   }
 
+
   if ($("onlineMessage")) {
 
     $("onlineMessage")
@@ -1016,6 +1171,7 @@ function showOnlineRoom() {
 
   }
 
+
   if ($("onlineError")) {
 
     $("onlineError")
@@ -1023,7 +1179,9 @@ function showOnlineRoom() {
 
   }
 
+
   updatePlayerList();
+
 
   if (socket) {
 
@@ -1032,6 +1190,7 @@ function showOnlineRoom() {
     );
 
   }
+
 
   syncPlayerToServer();
 
@@ -1049,10 +1208,12 @@ function updatePlayerList() {
 
   if (!list) return;
 
+
   const players =
     Object.values(
       onlinePlayers
     );
+
 
   if (!players.length) {
 
@@ -1063,6 +1224,7 @@ function updatePlayerList() {
 
   }
 
+
   list.innerHTML =
     players.map((p) => {
 
@@ -1070,7 +1232,9 @@ function updatePlayerList() {
         socket &&
         p.id === socket.id;
 
+
       return `
+
         <div class="player-list-item">
 
           ${isMe ? "⭐" : "👤"}
@@ -1082,13 +1246,19 @@ function updatePlayerList() {
           <br>
 
           <small>
+
             ${escapeHtml(p.job || "勇者")}
+
             / Lv.${p.level}
+
             / ❤️ ${p.hp}/${p.maxHp}
+
             / 🏆 ${p.bounty}
+
           </small>
 
         </div>
+
       `;
 
     }).join("");
@@ -1107,7 +1277,9 @@ function renderOnlinePlayers() {
 
   if (!container) return;
 
+
   container.innerHTML = "";
+
 
   Object.values(
     onlinePlayers
@@ -1117,22 +1289,29 @@ function renderOnlinePlayers() {
       socket &&
       p.id === socket.id
     ) {
+
       return;
+
     }
+
 
     const div =
       document.createElement("div");
 
+
     div.className =
       "remote-player";
+
 
     const x =
       50 +
       Number(p.x || 0) / 10;
 
+
     const y =
       45 +
       Number(p.y || 0) / 10;
+
 
     div.style.left =
       `${Math.max(
@@ -1140,24 +1319,32 @@ function renderOnlinePlayers() {
         Math.min(95, x)
       )}%`;
 
+
     div.style.top =
       `${Math.max(
         10,
         Math.min(85, y)
       )}%`;
 
+
     div.innerHTML = `
 
       <div class="remote-player-name">
+
         👤 ${escapeHtml(p.name)}
+
       </div>
 
       <div class="remote-player-info">
+
         Lv.${p.level}
+
         ❤️ ${p.hp}/${p.maxHp}
+
       </div>
 
     `;
+
 
     container.appendChild(div);
 
@@ -1173,8 +1360,11 @@ function renderOnlinePlayers() {
 function syncPlayerToServer() {
 
   if (!socket || !online) {
+
     return;
+
   }
+
 
   socket.emit(
     "updatePlayer",
@@ -1222,29 +1412,43 @@ function showStart() {
 
   clearLog();
 
+
   showScreen(`
 
     <div class="start-screen">
 
       <h2 class="screen-title">
+
         ⚔️ 勇者の懸賞金RPG
+
       </h2>
 
+
       <p class="description">
+
         モンスターを倒して強くなり、
         懸賞金を集めよう！
+
       </p>
 
+
       <button onclick="showCreatePlayer()">
+
         ▶️ 新しく始める
+
       </button>
+
 
       ${
         player.started
           ? `
+
             <button onclick="continueGame()">
+
               🔄 続きから
+
             </button>
+
           `
           : ""
       }
@@ -1252,6 +1456,7 @@ function showStart() {
     </div>
 
   `);
+
 
   updateStatus();
 
@@ -1270,6 +1475,7 @@ function showCreatePlayer() {
 
       <h2>👤 プレイヤー作成</h2>
 
+
       <input
         id="playerName"
         type="text"
@@ -1277,8 +1483,11 @@ function showCreatePlayer() {
         placeholder="名前を入力"
       >
 
+
       <button onclick="chooseJob()">
+
         次へ
+
       </button>
 
     </div>
@@ -1293,10 +1502,12 @@ function chooseJob() {
   const input =
     $("playerName");
 
+
   const name =
     input
       ? input.value.trim()
       : "";
+
 
   if (!name) {
 
@@ -1308,8 +1519,10 @@ function chooseJob() {
 
   }
 
+
   player.name =
     name;
+
 
   showScreen(`
 
@@ -1317,22 +1530,37 @@ function chooseJob() {
 
       <h2>⚔️ 職業を選択</h2>
 
+
       <button onclick="createPlayer('勇者')">
+
         ⚔️ 勇者
+
         <br>
+
         HP 30 / 攻撃 10
+
       </button>
+
 
       <button onclick="createPlayer('ヒーラー')">
+
         ❤️ ヒーラー
+
         <br>
+
         HP 35 / 攻撃 7
+
       </button>
 
+
       <button onclick="createPlayer('剣士')">
+
         🗡️ 剣士
+
         <br>
+
         HP 30 / 攻撃 14
+
       </button>
 
     </div>
@@ -1347,52 +1575,79 @@ function createPlayer(job) {
   const data =
     JOBS[job];
 
+
   if (!data) return;
 
+
   player.started = true;
+
   player.gameOver = false;
 
-  player.job = job;
+
+  player.job =
+    job;
+
 
   player.level = 1;
+
   player.xp = 0;
+
 
   player.maxHp =
     data.maxHp;
 
+
   player.hp =
     data.maxHp;
+
 
   player.attack =
     data.attack;
 
+
   player.money = 250;
+
   player.bounty = 0;
+
 
   player.weapon =
     "タガー";
 
+
   player.skills =
     [data.skill];
 
+
   player.inventory = {
+
     "タガー": 1
+
   };
+
 
   player.defeats = 0;
 
+
   player.townUnlocked = false;
+
   player.townTrust = 0;
 
+
   player.cityUnlocked = false;
+
   player.cityTrust = 0;
+
 
   player.encyclopedia = {};
 
+
   player.x = 0;
+
   player.y = 0;
 
+
   saveGame();
+
 
   showHome();
 
@@ -1413,12 +1668,15 @@ function showHome() {
 
   }
 
+
   updateStatus();
+
 
   const requiredXp =
     50 +
     player.level *
     50;
+
 
   const xpPercent =
     Math.min(
@@ -1428,28 +1686,41 @@ function showHome() {
       100
     );
 
+
   showScreen(`
 
     <div class="home-screen">
 
       <h2 class="screen-title">
+
         🏠 ホーム
+
       </h2>
+
 
       <div class="info-box">
 
         <h3>
+
           👤 ${escapeHtml(player.name)}
+
         </h3>
 
-        <p>
-          職業：
-          ${escapeHtml(player.job)}
-        </p>
 
         <p>
-          Lv.${player.level}
+
+          職業：
+          ${escapeHtml(player.job)}
+
         </p>
+
+
+        <p>
+
+          Lv.${player.level}
+
+        </p>
+
 
         <div class="xp-bar">
 
@@ -1460,8 +1731,11 @@ function showHome() {
 
         </div>
 
+
         <p>
+
           XP ${player.xp} / ${requiredXp}
+
         </p>
 
       </div>
@@ -1472,11 +1746,15 @@ function showHome() {
         <div class="stat">
 
           <div class="stat-title">
+
             ❤️ HP
+
           </div>
 
           <div class="stat-value">
+
             ${player.hp}/${player.maxHp}
+
           </div>
 
         </div>
@@ -1485,11 +1763,15 @@ function showHome() {
         <div class="stat">
 
           <div class="stat-title">
+
             ⚔️ 攻撃
+
           </div>
 
           <div class="stat-value">
+
             ${player.attack}
+
           </div>
 
         </div>
@@ -1498,11 +1780,15 @@ function showHome() {
         <div class="stat">
 
           <div class="stat-title">
+
             💰 お金
+
           </div>
 
           <div class="stat-value">
+
             ${player.money}
+
           </div>
 
         </div>
@@ -1511,11 +1797,15 @@ function showHome() {
         <div class="stat">
 
           <div class="stat-title">
+
             🏆 懸賞金
+
           </div>
 
           <div class="stat-value">
+
             ${player.bounty}
+
           </div>
 
         </div>
@@ -1524,22 +1814,65 @@ function showHome() {
 
 
       <button onclick="showOnlineMenu()">
+
         🌐 オンライン
+
       </button>
 
 
       <button onclick="showBattle()">
+
         ⚔️ モンスターと戦う
+
       </button>
 
 
       <button onclick="showOnlineTargetSelect()">
+
         ⚔️ プレイヤーと戦う
+
       </button>
 
 
       <button onclick="showBoss()">
+
         👑 懸賞金王に挑む
+
+      </button>
+
+
+      <button onclick="showTown()">
+
+        🏘️ 町
+
+      </button>
+
+
+      <button onclick="showCity()">
+
+        🏙️ 都市
+
+      </button>
+
+
+      <button onclick="showGacha()">
+
+        🎰 ガチャ
+
+      </button>
+
+
+      <button onclick="showBag()">
+
+        🎒 バッグ
+
+      </button>
+
+
+      <button onclick="showSettings()">
+
+        ⚙️ 設定
+
       </button>
 
     </div>
@@ -1563,22 +1896,39 @@ function showBattle() {
 
   }
 
+
   showScreen(`
 
     <div class="battle-screen">
 
       <h2>⚔️ 戦う</h2>
 
+
       <p class="description">
+
         モンスターと戦おう。
+
       </p>
 
+
       <button onclick="startBattle()">
+
         🎲 敵を探す
+
       </button>
 
+
       <button onclick="showOnlineTargetSelect()">
+
         🌐 プレイヤーと戦う
+
+      </button>
+
+
+      <button onclick="showHome()">
+
+        🏠 ホーム
+
       </button>
 
     </div>
@@ -1594,17 +1944,22 @@ function startBattle() {
     ENEMIES.filter((enemy) => {
 
       return (
+
         player.level >= enemy.minLevel &&
+
         player.level <=
           enemy.maxLevel + 5
+
       );
 
     });
+
 
   const pool =
     available.length
       ? available
       : ENEMIES;
+
 
   currentEnemy =
     pool[
@@ -1614,18 +1969,23 @@ function startBattle() {
       )
     ];
 
+
   currentEnemyHp =
     currentEnemy.hp;
+
 
   battleActive = true;
 
   defending = false;
 
+
   player.encyclopedia[
     currentEnemy.name
   ] = true;
 
+
   saveGame();
+
 
   showBattleScreen();
 
@@ -1642,6 +2002,7 @@ function showBattleScreen() {
 
   }
 
+
   const hpPercent =
     Math.max(
       0,
@@ -1650,23 +2011,31 @@ function showBattleScreen() {
       100
     );
 
+
   showScreen(`
 
     <div class="battle-screen">
 
       <h2>⚔️ 戦闘中</h2>
 
+
       <div class="enemy-box">
 
         <h3>
+
           👹
           ${escapeHtml(currentEnemy.name)}
+
         </h3>
 
+
         <p>
+
           HP
           ${currentEnemyHp}/${currentEnemy.hp}
+
         </p>
+
 
         <div class="hp-bar">
 
@@ -1677,10 +2046,20 @@ function showBattleScreen() {
 
         </div>
 
+
         <p>
+
           攻撃力：
           ${currentEnemy.attack}
+
         </p>
+
+
+        ${
+          currentEnemy.area
+            ? `<p>📍 ${escapeHtml(currentEnemy.area)}</p>`
+            : ""
+        }
 
       </div>
 
@@ -1690,6 +2069,7 @@ function showBattleScreen() {
         ❤️ 自分
 
         ${player.hp}/${player.maxHp}
+
 
         <div class="hp-bar">
 
@@ -1713,23 +2093,37 @@ function showBattleScreen() {
       <div class="battle-actions">
 
         <button onclick="attackEnemy()">
+
           ⚔️ 攻撃
+
         </button>
+
 
         <button onclick="defend()">
+
           🛡️ 防御
+
         </button>
+
 
         <button onclick="showSkillSelect()">
+
           ✨ スキル
+
         </button>
+
 
         <button onclick="inspectEnemy()">
+
           🔎 調べる
+
         </button>
 
+
         <button onclick="flee()">
+
           🏃 逃げる
+
         </button>
 
       </div>
@@ -1737,6 +2131,7 @@ function showBattleScreen() {
     </div>
 
   `);
+
 
   updateStatus();
 
@@ -1753,12 +2148,15 @@ function attackEnemy() {
     !battleActive ||
     !currentEnemy
   ) {
+
     return;
+
   }
 
 
   const result =
     calculateAttackDamage(0);
+
 
   const damage =
     result.damage;
@@ -1808,7 +2206,9 @@ function attackEnemy() {
   setTimeout(() => {
 
     if (battleActive) {
+
       enemyAttack();
+
     }
 
   }, 500);
@@ -1824,16 +2224,21 @@ function defend() {
 
   if (!battleActive) return;
 
+
   defending = true;
+
 
   addBattleMessage(
     "🛡️ 防御態勢！"
   );
 
+
   setTimeout(() => {
 
     if (battleActive) {
+
       enemyAttack();
+
     }
 
   }, 400);
@@ -1849,11 +2254,13 @@ function showSkillSelect() {
 
   if (!battleActive) return;
 
+
   showScreen(`
 
     <div class="skill-screen">
 
       <h2>✨ スキル選択</h2>
+
 
       <div class="skill-list">
 
@@ -1862,9 +2269,13 @@ function showSkillSelect() {
           const info =
             SKILLS[skill];
 
+
           if (!info) {
+
             return "";
+
           }
+
 
           return `
 
@@ -1879,8 +2290,11 @@ function showSkillSelect() {
 
               ${
                 info.type === "heal"
+
                   ? `回復 ${info.power}`
+
                   : `攻撃 ${info.power}`
+
               }
 
             </button>
@@ -1891,8 +2305,11 @@ function showSkillSelect() {
 
       </div>
 
+
       <button onclick="showBattleScreen()">
+
         戻る
+
       </button>
 
     </div>
@@ -1915,23 +2332,26 @@ function useSelectedSkill(skill) {
     !battleActive ||
     !currentEnemy
   ) {
+
     return;
+
   }
+
 
   const info =
     SKILLS[skill];
 
+
   if (!info) return;
 
 
-  /* ================================
-     ヒール
-  ================================= */
+  /* ヒール */
 
   if (info.type === "heal") {
 
     const before =
       player.hp;
+
 
     player.hp =
       Math.min(
@@ -1940,22 +2360,23 @@ function useSelectedSkill(skill) {
         info.power
       );
 
+
     const healed =
       player.hp -
       before;
 
+
     addBattleMessage(
       `❤️ ${skill}！HPが ${healed} 回復！`
     );
+
 
     saveGame();
 
   }
 
 
-  /* ================================
-     攻撃スキル
-  ================================= */
+  /* 攻撃 */
 
   else {
 
@@ -1963,6 +2384,7 @@ function useSelectedSkill(skill) {
       calculateAttackDamage(
         info.power
       );
+
 
     const damage =
       result.damage;
@@ -2014,7 +2436,9 @@ function useSelectedSkill(skill) {
   setTimeout(() => {
 
     if (battleActive) {
+
       enemyAttack();
+
     }
 
   }, 500);
@@ -2032,8 +2456,11 @@ function enemyAttack() {
     !battleActive ||
     !currentEnemy
   ) {
+
     return;
+
   }
+
 
   let damage =
     Number(currentEnemy.attack) || 0;
@@ -2045,6 +2472,7 @@ function enemyAttack() {
       Math.ceil(
         damage / 2
       );
+
 
     defending = false;
 
@@ -2060,6 +2488,7 @@ function enemyAttack() {
 
   player.hp -=
     damage;
+
 
   player.hp =
     Math.max(
@@ -2100,6 +2529,7 @@ function inspectEnemy() {
 
   if (!currentEnemy) return;
 
+
   addBattleMessage(
     `${currentEnemy.name}：HP ${currentEnemyHp} / 攻撃 ${currentEnemy.attack}`
   );
@@ -2119,9 +2549,11 @@ function flee() {
 
   currentEnemyHp = 0;
 
+
   addBattleMessage(
     "🏃 戦闘から逃げた！"
   );
+
 
   showBattle();
 
@@ -2136,27 +2568,37 @@ function victory() {
 
   battleActive = false;
 
+
   const enemy =
     currentEnemy;
 
+
   player.defeats += 1;
+
 
   player.xp +=
     enemy.xp;
 
+
   player.money +=
     enemy.money;
+
 
   player.bounty +=
     10;
 
 
   if (player.defeats >= 3) {
+
     player.townUnlocked = true;
+
   }
 
+
   if (player.defeats >= 8) {
+
     player.cityUnlocked = true;
+
   }
 
 
@@ -2164,13 +2606,16 @@ function victory() {
     `🎉 ${enemy.name} を倒した！`
   );
 
+
   addBattleMessage(
     `✨ XP +${enemy.xp}`
   );
 
+
   addBattleMessage(
     `💰 お金 +${enemy.money}`
   );
+
 
   addBattleMessage(
     "🏆 懸賞金 +10"
@@ -2181,7 +2626,9 @@ function victory() {
 
   currentEnemyHp = 0;
 
+
   saveGame();
+
 
   showVictoryScreen();
 
@@ -2207,26 +2654,39 @@ function showVictoryScreen() {
 
       <h2>🎉 勝利！</h2>
 
-      <p>
-        敵を倒しました！
-      </p>
 
       <p>
+
+        敵を倒しました！
+
+      </p>
+
+
+      <p>
+
         撃破数：
         ${player.defeats}
+
       </p>
 
+
       <button onclick="showBattle()">
+
         ⚔️ 次の戦い
+
       </button>
 
+
       <button onclick="showHome()">
+
         🏠 ホーム
+
       </button>
 
     </div>
 
   `);
+
 
   updateStatus();
 
@@ -2244,16 +2704,20 @@ function checkLevelUp() {
     player.level *
     50;
 
+
   if (
     player.xp <
     required
   ) {
+
     return;
+
   }
 
 
   player.xp -=
     required;
+
 
   player.level +=
     1;
@@ -2265,6 +2729,7 @@ function checkLevelUp() {
 
 
   showLevelUpChoice();
+
 
   saveGame();
 
@@ -2278,23 +2743,37 @@ function showLevelUpChoice() {
     <div class="levelup-screen">
 
       <h2>
+
         ⬆️ レベルアップ！
+
       </h2>
 
+
       <p>
+
         強化する項目を選択してください。
+
       </p>
 
+
       <button onclick="levelUpHp()">
+
         ❤️ 最大HP +5
+
       </button>
+
 
       <button onclick="levelUpAttack()">
+
         ⚔️ 攻撃力 +20
+
       </button>
 
+
       <button onclick="unlockSkill()">
+
         ✨ 新しいスキル
+
       </button>
 
     </div>
@@ -2308,12 +2787,15 @@ function levelUpHp() {
 
   player.maxHp += 5;
 
+
   player.hp =
     player.maxHp;
+
 
   addBattleMessage(
     "❤️ 最大HP +5！"
   );
+
 
   saveGame();
 
@@ -2326,9 +2808,11 @@ function levelUpAttack() {
 
   player.attack += 20;
 
+
   addBattleMessage(
     "⚔️ 攻撃力 +20！"
   );
+
 
   saveGame();
 
@@ -2351,9 +2835,11 @@ function unlockSkill() {
 
     player.attack += 10;
 
+
     addBattleMessage(
       "✨ 全スキル取得済み！攻撃力 +10"
     );
+
 
     saveGame();
 
@@ -2402,6 +2888,7 @@ function gameOver() {
 
   player.hp = 0;
 
+
   saveGame();
 
 
@@ -2410,15 +2897,23 @@ function gameOver() {
     <div class="gameover-screen">
 
       <h2>
+
         💀 GAME OVER
+
       </h2>
 
+
       <p>
+
         あなたは倒れてしまった……
+
       </p>
 
+
       <button onclick="restartAfterDeath()">
+
         🔄 最初からやり直す
+
       </button>
 
     </div>
@@ -2453,15 +2948,22 @@ function showTown() {
           🔒
         </div>
 
+
         <h2>🏘️ 町</h2>
 
-        <p>
-          モンスターを3体倒すと解放されます。
-        </p>
 
         <p>
+
+          モンスターを3体倒すと解放されます。
+
+        </p>
+
+
+        <p>
+
           現在：
           ${player.defeats} / 3
+
         </p>
 
       </div>
@@ -2479,21 +2981,40 @@ function showTown() {
 
       <h2>🏘️ 町</h2>
 
+
       <p>
+
         信頼度：
         ${player.townTrust}
+
       </p>
 
+
       <button onclick="townHeal()">
+
         ❤️ 回復する（30G）
+
       </button>
+
 
       <button onclick="townShop()">
+
         🛒 町のショップ
+
       </button>
 
+
       <button onclick="townEvent()">
+
         🎁 町イベント
+
+      </button>
+
+
+      <button onclick="showHome()">
+
+        🏠 ホーム
+
       </button>
 
     </div>
@@ -2542,16 +3063,25 @@ function townShop() {
 
       <h2>🛒 町のショップ</h2>
 
+
       <button onclick="buySword()">
+
         🗡️ 剣（100G）
+
       </button>
+
 
       <button onclick="buyDagger()">
+
         🗡️ タガー（50G）
+
       </button>
 
+
       <button onclick="showTown()">
+
         戻る
+
       </button>
 
     </div>
@@ -2576,9 +3106,11 @@ function buySword() {
 
   player.money -= 100;
 
+
   player.inventory["剣"] =
     (player.inventory["剣"] || 0) +
     1;
+
 
   player.weapon =
     "剣";
@@ -2611,9 +3143,11 @@ function buyDagger() {
 
   player.money -= 50;
 
+
   player.inventory["タガー"] =
     (player.inventory["タガー"] || 0) +
     1;
+
 
   player.weapon =
     "タガー";
@@ -2643,23 +3177,30 @@ function townEvent() {
       (player.inventory["薬草"] || 0) +
       1;
 
+
     addBattleMessage(
       "🌿 薬草をもらった！"
     );
 
-  } else if (r < 0.66) {
+  }
+
+  else if (r < 0.66) {
 
     player.inventory["タガー"] =
       (player.inventory["タガー"] || 0) +
       1;
 
+
     addBattleMessage(
       "🗡️ タガーをもらった！"
     );
 
-  } else {
+  }
+
+  else {
 
     player.money += 100;
+
 
     addBattleMessage(
       "💰 100Gもらった！"
@@ -2669,6 +3210,7 @@ function townEvent() {
 
 
   player.townTrust += 1;
+
 
   saveGame();
 
@@ -2693,15 +3235,22 @@ function showCity() {
           🔒
         </div>
 
+
         <h2>🏙️ 都市</h2>
 
-        <p>
-          モンスターを8体倒すと解放されます。
-        </p>
 
         <p>
+
+          モンスターを8体倒すと解放されます。
+
+        </p>
+
+
+        <p>
+
           現在：
           ${player.defeats} / 8
+
         </p>
 
       </div>
@@ -2719,21 +3268,40 @@ function showCity() {
 
       <h2>🏙️ 都市</h2>
 
+
       <p>
+
         信頼度：
         ${player.cityTrust}
+
       </p>
 
+
       <button onclick="cityHeal()">
+
         ❤️ 完全回復（80G）
+
       </button>
+
 
       <button onclick="cityShop()">
+
         🛒 都市ショップ
+
       </button>
 
+
       <button onclick="cityEvent()">
+
         🎉 都市イベント
+
+      </button>
+
+
+      <button onclick="showHome()">
+
+        🏠 ホーム
+
       </button>
 
     </div>
@@ -2782,16 +3350,25 @@ function cityShop() {
 
       <h2>🛒 都市ショップ</h2>
 
+
       <button onclick="buyCityWeapon()">
+
         ⚔️ 強化剣（300G）
+
       </button>
+
 
       <button onclick="buyPotion()">
+
         🧪 ポーション（50G）
+
       </button>
 
+
       <button onclick="showCity()">
+
         戻る
+
       </button>
 
     </div>
@@ -2816,9 +3393,11 @@ function buyCityWeapon() {
 
   player.money -= 300;
 
+
   player.inventory["強化剣"] =
     (player.inventory["強化剣"] || 0) +
     1;
+
 
   player.weapon =
     "強化剣";
@@ -2850,6 +3429,7 @@ function buyPotion() {
 
 
   player.money -= 50;
+
 
   player.inventory["ポーション"] =
     (player.inventory["ポーション"] || 0) +
@@ -2899,12 +3479,25 @@ function showGacha() {
 
       <h2>🎰 ガチャ</h2>
 
+
       <p>
+
         1回 50G
+
       </p>
 
+
       <button onclick="gacha()">
+
         🎰 ガチャを回す
+
+      </button>
+
+
+      <button onclick="showHome()">
+
+        🏠 ホーム
+
       </button>
 
     </div>
@@ -2956,18 +3549,34 @@ function showGachaResult(item) {
 
       <h2>🎉 ガチャ結果</h2>
 
+
       <div class="result-item">
+
         ${escapeHtml(item)}
+
       </div>
+
 
       <button
         onclick="equipWeapon('${escapeHtml(item)}')"
       >
+
         ⚔️ 装備する
+
       </button>
 
+
       <button onclick="showGacha()">
+
         🎰 もう一度
+
+      </button>
+
+
+      <button onclick="showHome()">
+
+        🏠 ホーム
+
       </button>
 
     </div>
@@ -2993,10 +3602,12 @@ function showBag() {
 
     <div class="bag-screen">
 
-      <h2>🎒 バック</h2>
+      <h2>🎒 バッグ</h2>
+
 
       ${
         items.length
+
           ? `
 
             <div class="inventory-list">
@@ -3007,9 +3618,12 @@ function showBag() {
                   <div class="inventory-item">
 
                     <span>
+
                       ${escapeHtml(item)}
                       ×${count}
+
                     </span>
+
 
                     ${
                       [
@@ -3023,7 +3637,9 @@ function showBag() {
                           <button
                             onclick="equipWeapon('${escapeHtml(item)}')"
                           >
+
                             装備
+
                           </button>
 
                         `
@@ -3035,12 +3651,15 @@ function showBag() {
                             <button
                               onclick="usePotion()"
                             >
+
                               使う
+
                             </button>
 
                           `
 
                           : ""
+
                     }
 
                   </div>
@@ -3051,8 +3670,17 @@ function showBag() {
             </div>
 
           `
+
           : "<p>アイテムがありません。</p>"
+
       }
+
+
+      <button onclick="showHome()">
+
+        🏠 ホーム
+
+      </button>
 
     </div>
 
@@ -3066,7 +3694,9 @@ function equipWeapon(weapon) {
   if (
     !player.inventory[weapon]
   ) {
+
     return;
+
   }
 
 
@@ -3092,7 +3722,9 @@ function usePotion() {
     !player.inventory["ポーション"] ||
     player.inventory["ポーション"] <= 0
   ) {
+
     return;
+
   }
 
 
@@ -3130,28 +3762,43 @@ function showBoss() {
 
       <h2>👑 懸賞金王</h2>
 
+
       <div class="enemy-box">
 
         <p>
+
           ❤️ HP ${BOSS.hp}
+
         </p>
 
+
         <p>
+
           ⚔️ 攻撃 ${BOSS.attack}
+
         </p>
 
+
         <p>
+
           💰 報酬 ${BOSS.money}G
+
         </p>
 
       </div>
 
+
       <button onclick="startBossBattle()">
+
         👑 挑戦する
+
       </button>
 
+
       <button onclick="showHome()">
+
         戻る
+
       </button>
 
     </div>
@@ -3168,12 +3815,15 @@ function startBossBattle() {
       ...BOSS
     };
 
+
   currentEnemyHp =
     BOSS.hp;
+
 
   battleActive = true;
 
   defending = false;
+
 
   showBattleScreen();
 
@@ -3194,16 +3844,25 @@ function showOnlineTargetSelect() {
 
         <h2>🌐 オンライン</h2>
 
+
         <p>
+
           まずオンラインに接続してください。
+
         </p>
 
+
         <button onclick="showOnlineMenu()">
+
           🌐 オンラインに接続
+
         </button>
 
+
         <button onclick="showHome()">
+
           戻る
+
         </button>
 
       </div>
@@ -3234,16 +3893,25 @@ function showOnlineTargetSelect() {
 
         <h2>⚔️ プレイヤー戦</h2>
 
+
         <p>
+
           現在、他のプレイヤーがいません。
+
         </p>
 
+
         <button onclick="showOnlineMenu()">
+
           🌐 ルーム情報
+
         </button>
 
+
         <button onclick="showHome()">
+
           戻る
+
         </button>
 
       </div>
@@ -3260,6 +3928,7 @@ function showOnlineTargetSelect() {
     <div class="battle-screen">
 
       <h2>⚔️ プレイヤーを選択</h2>
+
 
       ${
         targets.map(
@@ -3286,8 +3955,11 @@ function showOnlineTargetSelect() {
         ).join("")
       }
 
+
       <button onclick="showHome()">
+
         戻る
+
       </button>
 
     </div>
@@ -3300,7 +3972,9 @@ function showOnlineTargetSelect() {
 function attackOnlinePlayer(targetId) {
 
   if (!socket || !online) {
+
     return;
+
   }
 
 
@@ -3324,24 +3998,39 @@ function showSettings() {
 
       <h2>⚙️ 設定</h2>
 
+
       <button onclick="deleteSaveConfirm()">
+
         🗑️ セーブデータ削除
+
       </button>
+
 
       <button onclick="showSkillInfo()">
+
         ✨ スキル一覧
+
       </button>
+
 
       <button onclick="showLevelInfo()">
+
         ⬆️ レベル情報
+
       </button>
+
 
       <button onclick="showEncyclopedia()">
+
         📖 図鑑
+
       </button>
 
+
       <button onclick="showHome()">
+
         戻る
+
       </button>
 
     </div>
@@ -3358,7 +4047,9 @@ function deleteSaveConfirm() {
       "本当にセーブデータを削除しますか？"
     );
 
+
   if (!ok) return;
+
 
   deleteSave();
 
@@ -3373,6 +4064,7 @@ function showSkillInfo() {
 
       <h2>✨ スキル一覧</h2>
 
+
       ${
         Object.entries(SKILLS)
           .map(
@@ -3381,26 +4073,42 @@ function showSkillInfo() {
               <div class="info-box">
 
                 <b>
+
                   ${escapeHtml(name)}
+
                 </b>
 
+
                 <p>
+
                   ${
                     info.type === "heal"
+
                       ? `回復力：${info.power}`
+
                       : `スキル威力：${info.power}`
+
                   }
+
                 </p>
+
 
                 ${
                   info.type === "attack"
+
                     ? `
+
                       <small>
+
                         実ダメージ：
                         スキル威力 + 攻撃力 + 武器補正
+
                       </small>
+
                     `
+
                     : ""
+
                 }
 
               </div>
@@ -3409,8 +4117,11 @@ function showSkillInfo() {
           ).join("")
       }
 
+
       <button onclick="showSettings()">
+
         戻る
+
       </button>
 
     </div>
@@ -3428,23 +4139,35 @@ function showLevelInfo() {
 
       <h2>⬆️ レベル情報</h2>
 
+
       <p>
+
         現在レベル：
         ${player.level}
+
       </p>
 
+
       <p>
+
         現在XP：
         ${player.xp}
+
       </p>
+
 
       <p>
+
         次の必要XP：
         ${50 + player.level * 50}
+
       </p>
 
+
       <button onclick="showSettings()">
+
         戻る
+
       </button>
 
     </div>
@@ -3468,6 +4191,7 @@ function showEncyclopedia() {
 
       <h2>📖 モンスター図鑑</h2>
 
+
       ${
         names.length
 
@@ -3475,7 +4199,9 @@ function showEncyclopedia() {
               (name) => `
 
                 <div class="info-box">
+
                   👹 ${escapeHtml(name)}
+
                 </div>
 
               `
@@ -3484,8 +4210,11 @@ function showEncyclopedia() {
           : "<p>まだ登録されていません。</p>"
       }
 
+
       <button onclick="showSettings()">
+
         戻る
+
       </button>
 
     </div>
@@ -3552,7 +4281,9 @@ document.addEventListener(
 
       showHome();
 
-    } else {
+    }
+
+    else {
 
       showStart();
 
