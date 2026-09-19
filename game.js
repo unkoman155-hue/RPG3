@@ -1,3 +1,4 @@
+alert("game.js読み込みOK");
 const SAVE_KEY = "yuusha_kenshoukin_rpg";
 
 let player = {
