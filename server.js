@@ -14,22 +14,18 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// ==============================
-// 静的ファイル
-// ==============================
-
 app.use(express.static(path.join(__dirname, "public")));
 
-// ==============================
-// ルーム管理
-// ==============================
+/* =========================
+   ルーム管理
+========================= */
 
 const rooms = new Map();
 
 function makeRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-  let code;
+  let code = "";
 
   do {
     code = "";
@@ -42,197 +38,174 @@ function makeRoomCode() {
   return code;
 }
 
-// ==============================
-// プレイヤー情報
-// ==============================
-
-function createPlayer(socket, data = {}) {
+function createPlayer(socket, name) {
   return {
     id: socket.id,
 
-    name:
-      typeof data.name === "string" && data.name.trim()
-        ? data.name.trim().slice(0, 20)
-        : "勇者",
+    name: name || "名無し",
+    job: "勇者",
 
-    job:
-      typeof data.job === "string" && data.job.trim()
-        ? data.job.trim().slice(0, 20)
-        : "勇者",
+    level: 1,
+    xp: 0,
 
-    level: Number(data.level) || 1,
-    xp: Number(data.xp) || 0,
+    maxHp: 30,
+    hp: 30,
 
-    maxHp: Number(data.maxHp) || 30,
-    hp: Number(data.hp) || 30,
+    attack: 10,
 
-    attack: Number(data.attack) || 10,
+    money: 250,
+    bounty: 0,
 
-    money: Number(data.money) || 250,
-    bounty: Number(data.bounty) || 0,
+    weapon: "タガー",
+    skills: ["斬撃"],
 
-    weapon:
-      typeof data.weapon === "string"
-        ? data.weapon.slice(0, 30)
-        : "タガー",
+    defeats: 0,
 
-    defeats: Number(data.defeats) || 0,
+    townUnlocked: false,
+    townTrust: 0,
 
-    x:
-      Number.isFinite(Number(data.x))
-        ? Number(data.x)
-        : Math.floor(Math.random() * 700) + 100,
+    cityUnlocked: false,
+    cityTrust: 0,
 
-    y:
-      Number.isFinite(Number(data.y))
-        ? Number(data.y)
-        : Math.floor(Math.random() * 400) + 100,
+    x: 0,
+    y: 0,
 
     online: true
   };
 }
 
-// ==============================
-// ルーム情報をクライアントへ送る
-// ==============================
-
-function getPublicRoom(room) {
-  return {
-    code: room.code,
-
-    players: [...room.players.values()].map((player) => ({
-      id: player.id,
-      name: player.name,
-      job: player.job,
-      level: player.level,
-      xp: player.xp,
-      maxHp: player.maxHp,
-      hp: player.hp,
-      attack: player.attack,
-      money: player.money,
-      bounty: player.bounty,
-      weapon: player.weapon,
-      defeats: player.defeats,
-      x: player.x,
-      y: player.y,
-      online: player.online
-    }))
-  };
+function getRoomPlayers(room) {
+  return Array.from(room.players.values());
 }
 
-function broadcastRoom(room) {
-  io.to(room.code).emit("roomState", getPublicRoom(room));
+function sendRoomState(roomCode) {
+  const room = rooms.get(roomCode);
+
+  if (!room) return;
+
+  const players = getRoomPlayers(room);
+
+  io.to(roomCode).emit("roomState", {
+    roomCode,
+    players
+  });
 }
 
-// ==============================
-// 接続
-// ==============================
+/* =========================
+   接続
+========================= */
 
 io.on("connection", (socket) => {
   console.log("接続:", socket.id);
 
-  // ============================
-  // ルーム作成
-  // ============================
+  /* =========================
+     ルーム作成
+  ========================= */
 
-  socket.on("createRoom", (data = {}) => {
-    // すでにルームにいる場合
-    if (socket.roomCode) {
-      socket.emit("roomError", "すでにルームに参加しています。");
-      return;
-    }
+  socket.on("createRoom", (data) => {
+    const name =
+      data && typeof data.name === "string"
+        ? data.name.trim().slice(0, 20)
+        : "名無し";
 
-    const code = makeRoomCode();
+    const roomCode = makeRoomCode();
 
     const room = {
-      code,
+      code: roomCode,
       players: new Map(),
       createdAt: Date.now()
     };
 
-    const player = createPlayer(socket, data);
+    const player = createPlayer(socket, name);
 
     room.players.set(socket.id, player);
-    rooms.set(code, room);
 
-    socket.join(code);
-    socket.roomCode = code;
+    rooms.set(roomCode, room);
+
+    socket.join(roomCode);
+
+    socket.roomCode = roomCode;
 
     socket.emit("roomCreated", {
-      code,
-      playerId: socket.id
+      roomCode,
+      player
     });
 
-    broadcastRoom(room);
+    sendRoomState(roomCode);
 
-    console.log("ルーム作成:", code);
+    console.log(
+      `ルーム作成: ${roomCode} / ${player.name}`
+    );
   });
 
-  // ============================
-  // ルーム参加
-  // ============================
+  /* =========================
+     ルーム参加
+  ========================= */
 
-  socket.on("joinRoom", (data = {}) => {
-    // すでにルームにいる場合
-    if (socket.roomCode) {
-      socket.emit("roomError", "すでにルームに参加しています。");
-      return;
-    }
-
-    const code =
-      typeof data.code === "string"
-        ? data.code.trim().toUpperCase()
+  socket.on("joinRoom", (data) => {
+    const roomCode =
+      data && typeof data.roomCode === "string"
+        ? data.roomCode.trim().toUpperCase()
         : "";
 
-    if (!code) {
-      socket.emit("roomError", "ルームコードを入力してください。");
+    const name =
+      data && typeof data.name === "string"
+        ? data.name.trim().slice(0, 20)
+        : "名無し";
+
+    if (!roomCode) {
+      socket.emit("onlineError", "ルームコードを入力してください。");
       return;
     }
 
-    const room = rooms.get(code);
+    const room = rooms.get(roomCode);
 
     if (!room) {
-      socket.emit("roomError", "そのルームは存在しません。");
+      socket.emit(
+        "onlineError",
+        "そのルームは存在しません。"
+      );
       return;
     }
 
     if (room.players.size >= 20) {
-      socket.emit("roomError", "このルームは満員です。");
+      socket.emit(
+        "onlineError",
+        "このルームは満員です。"
+      );
       return;
     }
 
-    const player = createPlayer(socket, data);
+    const player = createPlayer(socket, name);
 
     room.players.set(socket.id, player);
 
-    socket.join(code);
-    socket.roomCode = code;
+    socket.join(roomCode);
+
+    socket.roomCode = roomCode;
 
     socket.emit("roomJoined", {
-      code,
-      playerId: socket.id
+      roomCode,
+      player
     });
 
-    socket.to(code).emit("playerJoined", {
-      id: socket.id,
-      name: player.name
-    });
+    sendRoomState(roomCode);
 
-    broadcastRoom(room);
-
-    console.log("ルーム参加:", socket.id, "→", code);
+    console.log(
+      `ルーム参加: ${roomCode} / ${player.name}`
+    );
   });
 
-  // ============================
-  // プレイヤー情報更新
-  // ============================
+  /* =========================
+     プレイヤー情報更新
+  ========================= */
 
-  socket.on("updatePlayer", (data = {}) => {
-    const code = socket.roomCode;
+  socket.on("updatePlayer", (data) => {
+    const roomCode = socket.roomCode;
 
-    if (!code) return;
+    if (!roomCode) return;
 
-    const room = rooms.get(code);
+    const room = rooms.get(roomCode);
 
     if (!room) return;
 
@@ -240,58 +213,120 @@ io.on("connection", (socket) => {
 
     if (!player) return;
 
-    // 名前
+    if (!data || typeof data !== "object") {
+      return;
+    }
+
+    /*
+      クライアントから送られてきた
+      プレイヤー情報を更新する。
+
+      最大値などはサーバー側でも制限する。
+    */
+
     if (typeof data.name === "string") {
-      player.name = data.name.trim().slice(0, 20) || player.name;
+      player.name = data.name
+        .trim()
+        .slice(0, 20) || "名無し";
     }
 
-    // 職業
     if (typeof data.job === "string") {
-      player.job = data.job.trim().slice(0, 20) || player.job;
+      player.job = data.job.slice(0, 20);
     }
 
-    // 数値
-    const numberFields = [
-      "level",
-      "xp",
-      "maxHp",
-      "hp",
-      "attack",
-      "money",
-      "bounty",
-      "defeats",
-      "x",
-      "y"
-    ];
-
-    for (const field of numberFields) {
-      if (Number.isFinite(Number(data[field]))) {
-        player[field] = Number(data[field]);
-      }
+    if (Number.isFinite(data.level)) {
+      player.level = Math.max(
+        1,
+        Math.min(999, Math.floor(data.level))
+      );
     }
 
-    // HPの安全処理
-    player.maxHp = Math.max(1, player.maxHp);
-    player.hp = Math.max(0, Math.min(player.hp, player.maxHp));
+    if (Number.isFinite(data.xp)) {
+      player.xp = Math.max(
+        0,
+        Math.floor(data.xp)
+      );
+    }
 
-    // 装備
+    if (Number.isFinite(data.maxHp)) {
+      player.maxHp = Math.max(
+        1,
+        Math.min(99999, Math.floor(data.maxHp))
+      );
+    }
+
+    if (Number.isFinite(data.hp)) {
+      player.hp = Math.max(
+        0,
+        Math.min(player.maxHp, Math.floor(data.hp))
+      );
+    }
+
+    if (Number.isFinite(data.attack)) {
+      player.attack = Math.max(
+        1,
+        Math.min(99999, Math.floor(data.attack))
+      );
+    }
+
+    if (Number.isFinite(data.money)) {
+      player.money = Math.max(
+        0,
+        Math.min(999999999, Math.floor(data.money))
+      );
+    }
+
+    if (Number.isFinite(data.bounty)) {
+      player.bounty = Math.max(
+        0,
+        Math.min(999999999, Math.floor(data.bounty))
+      );
+    }
+
     if (typeof data.weapon === "string") {
       player.weapon = data.weapon.slice(0, 30);
     }
 
-    broadcastRoom(room);
+    if (Array.isArray(data.skills)) {
+      player.skills = data.skills
+        .filter(v => typeof v === "string")
+        .slice(0, 20);
+    }
+
+    if (Number.isFinite(data.defeats)) {
+      player.defeats = Math.max(
+        0,
+        Math.min(999999, Math.floor(data.defeats))
+      );
+    }
+
+    if (Number.isFinite(data.x)) {
+      player.x = Math.max(
+        -100000,
+        Math.min(100000, data.x)
+      );
+    }
+
+    if (Number.isFinite(data.y)) {
+      player.y = Math.max(
+        -100000,
+        Math.min(100000, data.y)
+      );
+    }
+
+    sendRoomState(roomCode);
   });
 
-  // ============================
-  // 移動
-  // ============================
+  /* =========================
+     移動
+  ========================= */
 
-  socket.on("move", (data = {}) => {
-    const code = socket.roomCode;
+  socket.on("move", (data) => {
+    const roomCode = socket.roomCode;
 
-    if (!code) return;
+    if (!roomCode) return;
 
-    const room = rooms.get(code);
+    const room = rooms.get(roomCode);
 
     if (!room) return;
 
@@ -299,194 +334,187 @@ io.on("connection", (socket) => {
 
     if (!player) return;
 
-    const x = Number(data.x);
-    const y = Number(data.y);
-
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    if (!data || typeof data !== "object") {
       return;
     }
 
-    // マップ範囲
-    player.x = Math.max(0, Math.min(2000, x));
-    player.y = Math.max(0, Math.min(1400, y));
+    if (Number.isFinite(data.x)) {
+      player.x = Math.max(
+        -100000,
+        Math.min(100000, data.x)
+      );
+    }
 
-    // 自分以外へ送信
-    socket.to(code).emit("playerMoved", {
-      id: socket.id,
+    if (Number.isFinite(data.y)) {
+      player.y = Math.max(
+        -100000,
+        Math.min(100000, data.y)
+      );
+    }
+
+    socket.to(roomCode).emit("playerMoved", {
+      id: player.id,
       x: player.x,
       y: player.y
     });
   });
 
-  // ============================
-  // PvP攻撃
-  // ============================
+  /* =========================
+     PvP攻撃
+  ========================= */
 
-  socket.on("attackPlayer", (data = {}) => {
-    const code = socket.roomCode;
+  socket.on("attackPlayer", (targetId) => {
+    const roomCode = socket.roomCode;
 
-    if (!code) return;
+    if (!roomCode) return;
 
-    const room = rooms.get(code);
+    const room = rooms.get(roomCode);
 
     if (!room) return;
 
     const attacker = room.players.get(socket.id);
-
-    if (!attacker) return;
-
-    const targetId =
-      typeof data.targetId === "string"
-        ? data.targetId
-        : "";
-
     const target = room.players.get(targetId);
 
-    if (!target) {
-      socket.emit("battleError", "相手が見つかりません。");
-      return;
-    }
+    if (!attacker || !target) return;
 
-    if (target.id === attacker.id) {
-      socket.emit("battleError", "自分自身は攻撃できません。");
-      return;
-    }
+    if (attacker.id === target.id) return;
 
-    if (target.hp <= 0) {
-      socket.emit("battleError", "そのプレイヤーは戦闘不能です。");
-      return;
-    }
+    const dx = attacker.x - target.x;
+    const dy = attacker.y - target.y;
 
-    const distance = Math.hypot(
-      attacker.x - target.x,
-      attacker.y - target.y
+    const distance = Math.sqrt(
+      dx * dx + dy * dy
     );
 
-    // 攻撃範囲
-    if (distance > 180) {
-      socket.emit("battleError", "相手が遠すぎます。");
+    const ATTACK_RANGE = 180;
+
+    if (distance > ATTACK_RANGE) {
+      socket.emit(
+        "onlineError",
+        "相手が遠すぎます。"
+      );
       return;
     }
 
-    let damage = Math.max(
-      1,
-      Math.floor(attacker.attack)
-    );
+    let damage = attacker.attack;
 
-    // 武器補正
     if (attacker.weapon === "タガー") {
       damage += 15;
-    } else if (attacker.weapon === "剣") {
+    }
+
+    if (attacker.weapon === "剣") {
       damage += 5;
-    } else if (attacker.weapon === "強化武器") {
+    }
+
+    if (attacker.weapon === "強化剣") {
       damage += 25;
     }
 
-    const critical = Math.random() < 0.15;
-
-    if (critical) {
+    if (Math.random() < 0.15) {
       damage += 5;
     }
 
-    target.hp = Math.max(0, target.hp - damage);
+    damage = Math.max(
+      1,
+      Math.floor(damage)
+    );
 
-    io.to(code).emit("playerAttacked", {
+    target.hp -= damage;
+
+    if (target.hp < 0) {
+      target.hp = 0;
+    }
+
+    io.to(roomCode).emit("playerDamaged", {
       attackerId: attacker.id,
-      attackerName: attacker.name,
       targetId: target.id,
-      targetName: target.name,
       damage,
-      critical,
-      targetHp: target.hp,
-      targetMaxHp: target.maxHp
+      hp: target.hp,
+      maxHp: target.maxHp
     });
 
-    // 撃破
+    /* =========================
+       撃破
+    ========================= */
+
     if (target.hp <= 0) {
       attacker.defeats += 1;
       attacker.bounty += 50;
 
       target.hp = target.maxHp;
 
-      io.to(code).emit("playerDefeated", {
+      io.to(roomCode).emit("playerDefeated", {
         attackerId: attacker.id,
-        attackerName: attacker.name,
         targetId: target.id,
-        targetName: target.name
+        attackerName: attacker.name,
+        targetName: target.name,
+        bounty: attacker.bounty
       });
-
-      broadcastRoom(room);
-    } else {
-      broadcastRoom(room);
     }
+
+    sendRoomState(roomCode);
   });
 
-  // ============================
-  // プレイヤー情報取得
-  // ============================
+  /* =========================
+     プレイヤー一覧要求
+  ========================= */
 
   socket.on("requestPlayers", () => {
-    const code = socket.roomCode;
+    const roomCode = socket.roomCode;
 
-    if (!code) return;
+    if (!roomCode) return;
 
-    const room = rooms.get(code);
+    const room = rooms.get(roomCode);
 
     if (!room) return;
 
-    socket.emit("roomState", getPublicRoom(room));
+    socket.emit("roomState", {
+      roomCode,
+      players: getRoomPlayers(room)
+    });
   });
 
-  // ============================
-  // 切断
-  // ============================
+  /* =========================
+     切断
+  ========================= */
 
   socket.on("disconnect", () => {
     console.log("切断:", socket.id);
 
-    const code = socket.roomCode;
+    const roomCode = socket.roomCode;
 
-    if (!code) return;
+    if (!roomCode) return;
 
-    const room = rooms.get(code);
+    const room = rooms.get(roomCode);
 
     if (!room) return;
 
-    const player = room.players.get(socket.id);
+    room.players.delete(socket.id);
 
-    if (player) {
-      room.players.delete(socket.id);
-
-      io.to(code).emit("playerLeft", {
-        id: socket.id,
-        name: player.name
-      });
-    }
-
-    // 誰もいなくなったらルーム削除
     if (room.players.size === 0) {
-      rooms.delete(code);
+      rooms.delete(roomCode);
 
-      console.log("ルーム削除:", code);
-    } else {
-      broadcastRoom(room);
+      console.log(
+        `ルーム削除: ${roomCode}`
+      );
+
+      return;
     }
+
+    sendRoomState(roomCode);
   });
 });
 
-// ==============================
-// 404
-// ==============================
-
-app.use((req, res) => {
-  res.status(404).send("ページが見つかりません。");
-});
-
-// ==============================
-// サーバー起動
-// ==============================
+/* =========================
+   サーバー起動
+========================= */
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`勇者の懸賞金RPG ONLINE`);
-  console.log(`Server started on port ${PORT}`);
+  console.log(
+    `勇者の懸賞金RPG ONLINE SERVER`
+  );
+
+  console.log(
+    `PORT: ${PORT}`
+  );
 });
