@@ -1,35 +1,26 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
+<meta charset="utf-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
-  >
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+>
 
-  <title>⚔️ 勇者の懸賞金RPG ONLINE</title>
+<title>⚔️ 勇者の懸賞金RPG</title>
 
-  <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <div id="app">
 
-  <!-- =========================
-       ヘッダー
-  ========================== -->
-
   <header>
-    <h1>⚔️ 勇者の懸賞金RPG ONLINE</h1>
+    <h1>⚔️ 勇者の懸賞金RPG</h1>
     <div id="status"></div>
   </header>
-
-
-  <!-- =========================
-       メイン画面
-  ========================== -->
 
   <main>
 
@@ -38,11 +29,6 @@
     <section id="log" class="panel log"></section>
 
   </main>
-
-
-  <!-- =========================
-       メインメニュー
-  ========================== -->
 
   <nav id="mainNav" class="nav">
 
@@ -79,9 +65,10 @@
 
   <!-- =========================
        オンライン画面
+       最初は表示しない
   ========================== -->
 
-  <div id="onlineOverlay" class="online-overlay">
+  <div id="onlineOverlay" class="online-overlay hidden">
 
     <div class="online-box">
 
@@ -93,9 +80,6 @@
 
       <p id="onlineError"></p>
 
-
-      <!-- プレイヤー名 -->
-
       <input
         id="onlineName"
         type="text"
@@ -104,15 +88,9 @@
         autocomplete="off"
       >
 
-
-      <!-- ルーム作成 -->
-
       <button onclick="createOnlineRoom()">
         🆕 ルームを作る
       </button>
-
-
-      <!-- ルーム参加 -->
 
       <div class="room-join">
 
@@ -124,4 +102,64 @@
           autocomplete="off"
         >
 
-        <button
+        <button onclick="joinOnlineRoom()">
+          🔑 参加
+        </button>
+
+      </div>
+
+      <div id="roomInfo" class="room-info hidden">
+
+        <div>
+          ルームコード
+        </div>
+
+        <strong id="roomCodeDisplay">
+          ------
+        </strong>
+
+      </div>
+
+      <div
+        id="onlinePlayers"
+        class="online-players hidden"
+      >
+
+        <div class="online-players-title">
+          👥 ルーム内プレイヤー
+        </div>
+
+        <div id="playerList"></div>
+
+      </div>
+
+      <button
+        id="closeOnlineButton"
+        class="hidden"
+        onclick="closeOnlineOverlay()"
+      >
+        ▶️ ゲームに戻る
+      </button>
+
+      <button onclick="closeOnlineOverlay()">
+        ✖ 閉じる
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- オンラインプレイヤー表示 -->
+
+  <div id="remotePlayers"></div>
+
+</div>
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script src="game.js"></script>
+
+</body>
+</html>
